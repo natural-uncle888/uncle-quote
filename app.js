@@ -158,7 +158,6 @@ function updateTotals(){
   });
 
   // 未稅總計
-  // （動態 DOM）未稅/含稅顯示由下方 container 控制，不直接寫入 #total / #totalWithTax
   const totalWithTax = Math.round(total * 1.05);
   const showTax = qs("#toggleTax")?.checked === true;
   (function(){
@@ -171,14 +170,11 @@ function updateTotals(){
       container.innerHTML = `<h5 class="mt-3 total-banner">合計：<span id="total">${total}</span> 元</h5>`;
     }
   })();
-
-  
-  // Hide the untaxed total banner when tax view is on
-  const untaxedBox = qs("#untaxedBox");
-  if (untaxedBox) untaxedBox.classList.toggle("d-none", showTax);
-// 手機底部合計：若開啟含稅，就顯示含稅；否則顯示未稅
   setText(qs("#totalMobile"), showTax ? totalWithTax : total);
   { const tag = qs("#totalMobileTag"); if (tag) tag.classList.toggle("d-none", !showTax); }
+
+  // 手機底部合計：若開啟含稅，就顯示含稅；否則顯示未稅
+  setText(qs("#totalMobile"), showTax ? totalWithTax : total);
 }
 
 function applyMobileLabels(){
@@ -332,12 +328,10 @@ async function handleShareClick(){
     const data = await res.json();
     const href = data.share_url || data.pdf_url || "#";
     
-    // Append tax preference to the share link based on current toggle state
     try {
       const taxOn = qs('#toggleTax')?.checked === true;
       const urlObj = new URL(href, location.href);
       urlObj.searchParams.set('tax', taxOn ? '1' : '0');
-      // Overwrite href with tax-param version
       var hrefWithTax = urlObj.toString();
     } catch(_) { var hrefWithTax = href; }
 const box = qs("#shareLinkBox");
@@ -573,27 +567,23 @@ document.addEventListener('click', function(e){
 ===================== */
 document.addEventListener('DOMContentLoaded', function(){
 
-  // Read URL param to control tax checkbox/visibility
   (function(){
     try {
-      const taxParam = getParam('tax'); // '1' to show/checked; '0' to hide checkbox and tax box
+      const taxParam = getParam('tax');
       const toggle = qs('#toggleTax');
-      const taxBox = qs('#taxBox');
       if (taxParam === '1') {
         if (toggle) toggle.checked = true;
       } else if (taxParam === '0') {
         if (toggle) {
           toggle.checked = false;
-          // Hide the entire toggle control if possible
           const wrap = toggle.closest('.form-check') || toggle.parentElement;
           if (wrap) wrap.classList.add('d-none');
         }
-        }
-      // Recalculate totals to reflect the state
+      }
       if (typeof updateTotals === 'function') updateTotals();
     } catch(_) {}
   })();
-
+{
   removeClass(qs('#readonlyActions'), 'd-none');
   removeClass(qs('#cancelBtnDesktop'), 'd-none');
   removeClass(qs('#cancelBtnMobile'), 'd-none');
