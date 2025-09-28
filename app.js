@@ -158,18 +158,19 @@ function updateTotals(){
   });
 
   // 未稅總計
+  // Dynamic totals rendering (no static #total/#totalWithTax banners)
   const totalWithTax = Math.round(total * 1.05);
   const showTax = qs("#toggleTax")?.checked === true;
   (function(){
     const container = qs("#totalContainer");
-    if (!container) return;
-    container.innerHTML = "";
-    if (showTax) {
-      container.innerHTML = `<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">${totalWithTax}</span> 元</h5>`;
-    } else {
-      container.innerHTML = `<h5 class="mt-3 total-banner">合計：<span id="total">${total}</span> 元</h5>`;
+    if (container) {
+      container.innerHTML = showTax
+        ? `<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">${totalWithTax}</span> 元</h5>`
+        : `<h5 class="mt-3 total-banner">合計：<span id="total">${total}</span> 元</h5>`;
     }
   })();
+
+  // Mobile footer number & tag
   setText(qs("#totalMobile"), showTax ? totalWithTax : total);
   { const tag = qs("#totalMobileTag"); if (tag) tag.classList.toggle("d-none", !showTax); }
 
@@ -328,6 +329,7 @@ async function handleShareClick(){
     const data = await res.json();
     const href = data.share_url || data.pdf_url || "#";
     
+    // Append tax preference as query param to the share link
     try {
       const taxOn = qs('#toggleTax')?.checked === true;
       const urlObj = new URL(href, location.href);
@@ -566,24 +568,23 @@ document.addEventListener('click', function(e){
    初始：若 admin，預先顯示取消鈕與唯讀動作區（避免晚一步載入）
 ===================== */
 document.addEventListener('DOMContentLoaded', function(){
-
+  // Initialize tax mode from URL (?tax=1 or ?tax=0)
   (function(){
     try {
       const taxParam = getParam('tax');
       const toggle = qs('#toggleTax');
+      const group  = toggle?.closest('.form-check') || qs('#taxToggleGroup');
       if (taxParam === '1') {
         if (toggle) toggle.checked = true;
+        if (group) group.classList.remove('d-none');
       } else if (taxParam === '0') {
-        if (toggle) {
-          toggle.checked = false;
-          const wrap = toggle.closest('.form-check') || toggle.parentElement;
-          if (wrap) wrap.classList.add('d-none');
-        }
+        if (toggle) toggle.checked = false;
+        if (group) group.classList.add('d-none');
       }
       if (typeof updateTotals === 'function') updateTotals();
     } catch(_) {}
   })();
-{
+
   removeClass(qs('#readonlyActions'), 'd-none');
   removeClass(qs('#cancelBtnDesktop'), 'd-none');
   removeClass(qs('#cancelBtnMobile'), 'd-none');
@@ -726,6 +727,23 @@ async function callCancel(reason) {
 // ========== End Patch ==========
 
 document.addEventListener('DOMContentLoaded', function(){
+  // Initialize tax mode from URL (?tax=1 or ?tax=0)
+  (function(){
+    try {
+      const taxParam = getParam('tax');
+      const toggle = qs('#toggleTax');
+      const group  = toggle?.closest('.form-check') || qs('#taxToggleGroup');
+      if (taxParam === '1') {
+        if (toggle) toggle.checked = true;
+        if (group) group.classList.remove('d-none');
+      } else if (taxParam === '0') {
+        if (toggle) toggle.checked = false;
+        if (group) group.classList.add('d-none');
+      }
+      if (typeof updateTotals === 'function') updateTotals();
+    } catch(_) {}
+  })();
+
   if (window.__QUOTE_CANCELLED__) {
     showCancelledUI(window.__QUOTE_CANCEL_REASON__ || '', window.__QUOTE_CANCEL_TIME__ || '');
     alertCancelledOnce();
@@ -915,5 +933,22 @@ document.addEventListener('DOMContentLoaded', function(){
 // === End Confirmed Modal ===
 
 document.addEventListener('DOMContentLoaded', function(){
+  // Initialize tax mode from URL (?tax=1 or ?tax=0)
+  (function(){
+    try {
+      const taxParam = getParam('tax');
+      const toggle = qs('#toggleTax');
+      const group  = toggle?.closest('.form-check') || qs('#taxToggleGroup');
+      if (taxParam === '1') {
+        if (toggle) toggle.checked = true;
+        if (group) group.classList.remove('d-none');
+      } else if (taxParam === '0') {
+        if (toggle) toggle.checked = false;
+        if (group) group.classList.add('d-none');
+      }
+      if (typeof updateTotals === 'function') updateTotals();
+    } catch(_) {}
+  })();
+
   qs('#toggleTax')?.addEventListener('change', updateTotals);
 });
