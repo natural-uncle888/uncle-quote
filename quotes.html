@@ -13,6 +13,8 @@
     .id-mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
     .small-mono{ font-size:.8rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
   </style>
+  <!-- 可選：若你要在本機以 file:// 方式打開這頁，請把 SITE_ORIGIN 設為你的網域 -->
+  <!-- <script>window.SITE_ORIGIN="https://unclequotation.netlify.app";</script> -->
 </head>
 <body>
 <div class="container py-4">
@@ -75,7 +77,6 @@
           </tbody>
         </table>
       </div>
-
       <div class="d-flex justify-content-center mt-3">
         <button id="moreBtn" class="btn btn-outline-primary d-none">載入更多</button>
       </div>
@@ -86,6 +87,11 @@
 <script>
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
+
+// ★ 支援 file:// 開檔：自動偵測 Netlify Functions 網域
+const ORIGIN = (location.origin && !String(location.origin).startsWith('file'))
+  ? location.origin
+  : (window.SITE_ORIGIN || 'https://unclequotation.netlify.app');
 
 let NEXT = "";
 let LAST_TOTAL = null;   // 後端回傳的總筆數（若能從 Search 取得）
@@ -132,14 +138,14 @@ function withinRange(ts, start, end){
 }
 
 async function fetchList(next=""){
-  const url = new URL("/.netlify/functions/list", location.origin);
+  const url = new URL("/.netlify/functions/list", ORIGIN);
   if (next) url.searchParams.set("next", next);
   const r = await fetch(url, { cache: "no-store" });
-  if (!r.ok) throw new Error("list failed");
+  if (!r.ok) throw new Error("list failed: " + r.status);
   return await r.json();
 }
 async function fetchDetail(id){
-  const url = new URL("/.netlify/functions/view", location.origin);
+  const url = new URL("/.netlify/functions/view", ORIGIN);
   url.searchParams.set("id", id);
   const r = await fetch(url, { cache: "no-store" });
   if (!r.ok) return null;
@@ -148,7 +154,7 @@ async function fetchDetail(id){
 function fmtDate(s){
   try{ return new Date(s).toLocaleString(); }catch(_){ return s || ""; }
 }
-function escapeHtml(s){ return String(s||"").replace(/[&<>\"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;" }[m])); }
+function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
 
 function applyClientSortAndFilter(){
   const tbody = $("#rows");
@@ -195,6 +201,16 @@ function recomputeAggregates(){
   const sel = $("#periodSel");
   const label = sel ? sel.options[sel.selectedIndex].text : "期間";
   if (mon) mon.textContent = `${label} 未作廢：${fmtMoney(sumPeriod)}`;
+}
+
+function showError(msg){
+  const tbody = document.querySelector("#rows");
+  if (!tbody) return;
+  const safe = String(msg||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  tbody.innerHTML = `<tr><td colspan="5" class="text-danger py-4 text-center">
+    載入失敗：${safe}<br>
+    <small>請確認網域是否正確（目前：${ORIGIN}）與 Netlify Functions 是否已部署。</small>
+  </td></tr>`;
 }
 
 function renderItems(items){
@@ -256,17 +272,22 @@ function renderItems(items){
   updateStats();
 }
 
-async function load(next=""){
-  $("#moreBtn").classList.add("d-none");
-  const data = await fetchList(next);
-  renderItems(data.items || []);
-  NEXT = data.next || "";
-  // 後端提供的總筆數（若 Search 可得）
-  if (typeof data._total === "number") { LAST_TOTAL = data._total; TOTAL_KNOWN = !!data._total_known; }
-  if (NEXT) $("#moreBtn").classList.remove("d-none");
-  applyClientSortAndFilter();
-  updateStats();
-  recomputeAggregates();
+async function load(next=""){ 
+  try {
+    $("#moreBtn").classList.add("d-none");
+    const data = await fetchList(next);
+    renderItems(data.items || []);
+    NEXT = data.next || "";
+    if (typeof data._total === "number") { LAST_TOTAL = data._total; TOTAL_KNOWN = !!data._total_known; }
+    if (NEXT) $("#moreBtn").classList.remove("d-none");
+    // ★ 若已到最後一頁且後端未知總數，就用已載入數補成 N/N
+    if (!NEXT && (!TOTAL_KNOWN || LAST_TOTAL == null)) { LAST_TOTAL = seen.size; TOTAL_KNOWN = true; }
+    applyClientSortAndFilter();
+    updateStats();
+    recomputeAggregates();
+  } catch (e) { 
+    showError(String(e && e.message || e)); 
+  }
 }
 
 $("#moreBtn").addEventListener("click", ()=> load(NEXT));
