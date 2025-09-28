@@ -158,7 +158,7 @@ function updateTotals(){
   });
 
   // 未稅總計
-  // （動態 DOM）未稅/含稅顯示由下方 container 控制，不直接寫入 #total / #totalWithTax
+  // Dynamic totals: render either untaxed or taxed banner into #totalContainer
   const totalWithTax = Math.round(total * 1.05);
   const showTax = qs("#toggleTax")?.checked === true;
   (function(){
@@ -172,11 +172,7 @@ function updateTotals(){
     }
   })();
 
-  
-  // Hide the untaxed total banner when tax view is on
-  const untaxedBox = qs("#untaxedBox");
-  if (untaxedBox) untaxedBox.classList.toggle("d-none", showTax);
-// 手機底部合計：若開啟含稅，就顯示含稅；否則顯示未稅
+  // 手機底部合計：若開啟含稅，就顯示含稅；否則顯示未稅
   setText(qs("#totalMobile"), showTax ? totalWithTax : total);
   { const tag = qs("#totalMobileTag"); if (tag) tag.classList.toggle("d-none", !showTax); }
 }
@@ -331,16 +327,16 @@ async function handleShareClick(){
     if(!res.ok){ const t = await res.text(); alert("產生連結失敗：" + t); return; }
     const data = await res.json();
     const href = data.share_url || data.pdf_url || "#";
-    
-    // Append tax preference to the share link based on current toggle state
+    // Append tax preference to the share link
+    let hrefWithTax = href;
     try {
-      const taxOn = qs('#toggleTax')?.checked === true;
-      const urlObj = new URL(href, location.href);
-      urlObj.searchParams.set('tax', taxOn ? '1' : '0');
-      // Overwrite href with tax-param version
-      var hrefWithTax = urlObj.toString();
-    } catch(_) { var hrefWithTax = href; }
-const box = qs("#shareLinkBox");
+      const taxOn = qs("#toggleTax")?.checked === true;
+      const u = new URL(href, location.href);
+      u.searchParams.set("tax", taxOn ? "1" : "0");
+      hrefWithTax = u.toString();
+    } catch(_) {}
+
+    const box = qs("#shareLinkBox");
     removeClass(box, "d-none");
     box.innerHTML = `
       <div class="mb-1 fw-bold">專屬報價單網址</div>
@@ -386,7 +382,7 @@ function collectShareData(){
     techPhone: qs("#technicianPhone").value,
     cleanTime: qs("#cleanFull").textContent,
     otherNotes:qs("#otherNotes").value,
-    items, total: (function(){ try{ let sum=0; qsa("#quoteTable tbody tr").forEach(tr=>{ const v=parseInt(tr.querySelector(".subtotal")?.textContent||"0",10); sum+=isNaN(v)?0:v; }); return String(sum);}catch(_){return "0";} })()
+    items, total: (function(){ try{ let s=0; qsa("#quoteTable tbody tr").forEach(tr=>{ const v=parseInt(tr.querySelector(".subtotal")?.textContent||"0",10); s+=isNaN(v)?0:v;}); return String(s);}catch(_){return "0";} })()
   };
 }
 
@@ -572,26 +568,22 @@ document.addEventListener('click', function(e){
    初始：若 admin，預先顯示取消鈕與唯讀動作區（避免晚一步載入）
 ===================== */
 document.addEventListener('DOMContentLoaded', function(){
-
-  // Read URL param to control tax checkbox/visibility
+  // Apply tax param behavior
   (function(){
-    try {
-      const taxParam = getParam('tax'); // '1' to show/checked; '0' to hide checkbox and tax box
+    try{
+      const taxParam = getParam('tax');
       const toggle = qs('#toggleTax');
-      const taxBox = qs('#taxBox');
       if (taxParam === '1') {
         if (toggle) toggle.checked = true;
       } else if (taxParam === '0') {
         if (toggle) {
           toggle.checked = false;
-          // Hide the entire toggle control if possible
           const wrap = toggle.closest('.form-check') || toggle.parentElement;
           if (wrap) wrap.classList.add('d-none');
         }
-        }
-      // Recalculate totals to reflect the state
-      if (typeof updateTotals === 'function') updateTotals();
-    } catch(_) {}
+      }
+    }catch(_){ }
+    try{ if (typeof updateTotals === 'function') updateTotals(); }catch(_){}
   })();
 
   removeClass(qs('#readonlyActions'), 'd-none');
@@ -736,6 +728,24 @@ async function callCancel(reason) {
 // ========== End Patch ==========
 
 document.addEventListener('DOMContentLoaded', function(){
+  // Apply tax param behavior
+  (function(){
+    try{
+      const taxParam = getParam('tax');
+      const toggle = qs('#toggleTax');
+      if (taxParam === '1') {
+        if (toggle) toggle.checked = true;
+      } else if (taxParam === '0') {
+        if (toggle) {
+          toggle.checked = false;
+          const wrap = toggle.closest('.form-check') || toggle.parentElement;
+          if (wrap) wrap.classList.add('d-none');
+        }
+      }
+    }catch(_){ }
+    try{ if (typeof updateTotals === 'function') updateTotals(); }catch(_){}
+  })();
+
   if (window.__QUOTE_CANCELLED__) {
     showCancelledUI(window.__QUOTE_CANCEL_REASON__ || '', window.__QUOTE_CANCEL_TIME__ || '');
     alertCancelledOnce();
@@ -925,5 +935,23 @@ document.addEventListener('DOMContentLoaded', function(){
 // === End Confirmed Modal ===
 
 document.addEventListener('DOMContentLoaded', function(){
+  // Apply tax param behavior
+  (function(){
+    try{
+      const taxParam = getParam('tax');
+      const toggle = qs('#toggleTax');
+      if (taxParam === '1') {
+        if (toggle) toggle.checked = true;
+      } else if (taxParam === '0') {
+        if (toggle) {
+          toggle.checked = false;
+          const wrap = toggle.closest('.form-check') || toggle.parentElement;
+          if (wrap) wrap.classList.add('d-none');
+        }
+      }
+    }catch(_){ }
+    try{ if (typeof updateTotals === 'function') updateTotals(); }catch(_){}
+  })();
+
   qs('#toggleTax')?.addEventListener('change', updateTotals);
 });
