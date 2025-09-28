@@ -344,7 +344,7 @@ const box = qs("#shareLinkBox");
         <input type="text" class="form-control" id="shareLinkInput" value="${hrefWithTax}" readonly>
         <button class="btn btn-primary" id="copyLinkBtn" type="button">📋 一鍵複製</button>
       </div>
-      <div class="mt-2"><a href="${href}" target="_blank">${href}</a></div>`;
+      <div class="mt-2"><a href="${hrefWithTax}" target="_blank">${hrefWithTax}</a></div>`;
     qs('#copyLinkBtn')?.addEventListener('click', async ()=>{
       const link = qs('#shareLinkInput')?.value || hrefWithTax;
       try{
