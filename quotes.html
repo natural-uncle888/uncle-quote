@@ -20,8 +20,6 @@
       .toolbar-right .stats { width: 100%; min-width: 0; }
     }
   </style>
-  <!-- 若要在本機 file:// 測試，請設定 SITE_ORIGIN -->
-  <!-- <script>window.SITE_ORIGIN="https://unclequotation.netlify.app";</script> -->
 </head>
 <body>
 <div class="container py-4">
@@ -103,14 +101,14 @@
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
-// ★ 支援 file:// 開檔：自動偵測 Netlify Functions 網域
+// 支援 file:// 開檔：自動偵測 Netlify Functions 網域（必要時可在頁面最上方自行指定 SITE_ORIGIN）
 const ORIGIN = (location.origin && !String(location.origin).startsWith('file'))
   ? location.origin
   : (window.SITE_ORIGIN || 'https://unclequotation.netlify.app');
 
 let NEXT = "";
-let LAST_TOTAL = null;   // 後端回傳的總筆數（若能從 Search 取得）
-let TOTAL_KNOWN = false; // 是否可確定總筆數
+let LAST_TOTAL = null;
+let TOTAL_KNOWN = false;
 let CURRENT_SORT = 'desc';      // 'desc' 最新優先；'asc' 最舊優先
 let CURRENT_FILTER = 'all';     // 'all' | 'active' | 'cancelled'
 const seen = new Set();
@@ -127,7 +125,7 @@ function getSelectedPeriodRange(){
   const sel = $("#periodSel")?.value || "month";
   const now = new Date();
   if (sel === "week"){
-    const day = (now.getDay() + 6) % 7; // Monday=0
+    const day = (now.getDay() + 6) % 7;
     const start = new Date(now); start.setDate(now.getDate() - day);
     const end = new Date(start); end.setDate(start.getDate() + 6);
     return [toStartOfDay(start), toEndOfDay(end)];
@@ -140,7 +138,7 @@ function getSelectedPeriodRange(){
     const start = s ? toStartOfDay(new Date(s)) : new Date(0);
     const end = e ? toEndOfDay(new Date(e)) : new Date(8640000000000000);
     return [start, end];
-  } else { // month
+  } else {
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const end = new Date(now.getFullYear(), now.getMonth()+1, 0);
     return [toStartOfDay(start), toEndOfDay(end)];
@@ -175,10 +173,10 @@ function applyClientSortAndFilter(){
   const tbody = $("#rows");
   const rows = Array.from(tbody.querySelectorAll("tr")).filter(tr=> tr.querySelector(".id-mono"));
 
-  // 排序（依第一欄日期）
+  // ✅ 修正排序：用 data-ts（timestamp）而不是第一欄的文字日期
   rows.sort((a,b)=>{
-    const ta = new Date(a.children[0]?.textContent || 0).getTime();
-    const tb = new Date(b.children[0]?.textContent || 0).getTime();
+    const ta = parseInt(a.getAttribute("data-ts") || "0", 10);
+    const tb = parseInt(b.getAttribute("data-ts") || "0", 10);
     return CURRENT_SORT === 'asc' ? ta - tb : tb - ta;
   });
   rows.forEach(tr=> tbody.appendChild(tr));
@@ -295,7 +293,7 @@ async function load(next=""){
     NEXT = data.next || "";
     if (typeof data._total === "number") { LAST_TOTAL = data._total; TOTAL_KNOWN = !!data._total_known; }
     if (NEXT) $("#moreBtn").classList.remove("d-none");
-    // ★ 若已到最後一頁且後端未知總數，就用已載入數補成 N/N
+    // 若已到最後一頁且後端未知總數，就用已載入數補成 N/N
     if (!NEXT && (!TOTAL_KNOWN || LAST_TOTAL == null)) { LAST_TOTAL = seen.size; TOTAL_KNOWN = true; }
     applyClientSortAndFilter();
     updateStats();
