@@ -158,16 +158,19 @@ function updateTotals(){
   });
 
   // 未稅總計
-  setText(qs("#total"), total);
-
-  // 含稅總計（加 5%）
+  // （動態 DOM）未稅/含稅顯示由下方 container 控制，不直接寫入 #total / #totalWithTax
   const totalWithTax = Math.round(total * 1.05);
-  setText(qs("#totalWithTax"), totalWithTax);
-
-  // 顯示/隱藏含稅區塊，並決定手機底欄顯示哪個金額
   const showTax = qs("#toggleTax")?.checked === true;
-  const taxBox = qs("#taxBox");
-  if (taxBox) taxBox.classList.toggle("d-none", !showTax);
+  (function(){
+    const container = qs("#totalContainer");
+    if (!container) return;
+    container.innerHTML = "";
+    if (showTax) {
+      container.innerHTML = `<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">${totalWithTax}</span> 元</h5>`;
+    } else {
+      container.innerHTML = `<h5 class="mt-3 total-banner">合計：<span id="total">${total}</span> 元</h5>`;
+    }
+  })();
 
   
   // Hide the untaxed total banner when tax view is on
@@ -175,6 +178,7 @@ function updateTotals(){
   if (untaxedBox) untaxedBox.classList.toggle("d-none", showTax);
 // 手機底部合計：若開啟含稅，就顯示含稅；否則顯示未稅
   setText(qs("#totalMobile"), showTax ? totalWithTax : total);
+  { const tag = qs("#totalMobileTag"); if (tag) tag.classList.toggle("d-none", !showTax); }
 }
 
 function applyMobileLabels(){
@@ -382,7 +386,7 @@ function collectShareData(){
     techPhone: qs("#technicianPhone").value,
     cleanTime: qs("#cleanFull").textContent,
     otherNotes:qs("#otherNotes").value,
-    items, total: qs("#total").textContent
+    items, total: (function(){ try{ let sum=0; qsa("#quoteTable tbody tr").forEach(tr=>{ const v=parseInt(tr.querySelector(".subtotal")?.textContent||"0",10); sum+=isNaN(v)?0:v; }); return String(sum);}catch(_){return "0";} })()
   };
 }
 
@@ -584,8 +588,7 @@ document.addEventListener('DOMContentLoaded', function(){
           const wrap = toggle.closest('.form-check') || toggle.parentElement;
           if (wrap) wrap.classList.add('d-none');
         }
-        if (taxBox) taxBox.classList.add('d-none');
-      }
+        }
       // Recalculate totals to reflect the state
       if (typeof updateTotals === 'function') updateTotals();
     } catch(_) {}
