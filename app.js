@@ -445,17 +445,24 @@ function applyReadOnlyData(data){
   })();
   qs("#otherNotes").value     = data.otherNotes|| "";
   const tbody = qs("#quoteTable tbody"); tbody.innerHTML = "";
+
+  // ✅ 修正版：保留 data-override 與自訂單價顯示
   (data.items || []).forEach(it=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><select class="form-select service" disabled><option>${it.service||""}</option></select></td>
       <td><select class="form-select option" disabled><option>${it.option||""}</option></select></td>
       <td><input type="number" class="form-control qty" value="${it.qty||1}" readonly /></td>
-      <td><input type="number" class="form-control price" value="${it.price||0}" readonly /><small class="discount-note"></small></td>
+      <td>
+        <input type="number" class="form-control price" value="${it.price||0}" 
+               ${it.overridden ? 'data-override="true"' : ''} readonly />
+        ${it.overridden ? '<small class="text-warning ms-1">(自訂單價)</small>' : '<small class="discount-note"></small>'}
+      </td>
       <td class="subtotal">${it.subtotal||0}</td>
       <td></td>`;
     tbody.appendChild(tr);
   });
+
   qsa("input, textarea").forEach(el=>el.setAttribute("readonly", true));
   qsa("select").forEach(el=>el.setAttribute("disabled", true));
   ["addRow","shareLinkBtn","shareLinkBtnMobile"].forEach(id=>{ const el = qs("#"+id); if(el) el.style.display="none"; });
