@@ -20,6 +20,31 @@
       .toolbar-right .stats { width: 100%; min-width: 0; }
     }
   </style>
+
+  <style>
+    /* toast styles */
+    .mini-toast{
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 2147482000;
+      background: rgba(25,135,84,.95);
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.25);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity .2s ease, transform .2s ease;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .mini-toast.show{
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+
 </head>
 <body>
 <div class="container py-4">
@@ -250,7 +275,6 @@ function renderItems(items){
       <td class="id-mono small">${escapeHtml(it.id)}</td>
       <td>
         <div class="btn-group">
-          <button class="btn btn-danger btn-sm delete">刪除</button>
           <a class="btn btn-primary btn-sm" href="${it.link}" target="_blank">開啟</a>
           <button class="btn btn-outline-secondary btn-sm copy">複製連結</button>
         </div>
@@ -260,30 +284,6 @@ function renderItems(items){
       try{ await navigator.clipboard.writeText(it.link);
            const b=tr.querySelector(".copy"); const t=b.textContent; b.textContent="已複製"; setTimeout(()=>b.textContent=t,1200);
       }catch(_){ alert("複製失敗"); }
-    });
-    // 刪除按鈕
-    tr.querySelector(".delete").addEventListener("click", async ()=>{
-      if (!confirm("確定要刪除這筆報價單嗎？此動作無法復原。")) return;
-      try{
-        const url = new URL("/.netlify/functions/delete", ORIGIN);
-        const r = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({ id: it.id })
-        });
-        if (!r.ok) {
-          const txt = await r.text();
-          alert("刪除失敗：" + txt);
-          return;
-        }
-        tr.remove();
-        seen.delete(it.public_id || it.id);
-        updateStats();
-        recomputeAggregates();
-      }catch(err){
-        console.error(err);
-        alert("刪除失敗，請稍後再試");
-      }
     });
     frag.appendChild(tr);
 
@@ -391,5 +391,24 @@ function exportCsv(){
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 </script>
+
+<script>
+function showToast(msg){
+  try{
+    let el = document.getElementById('miniToast');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'miniToast';
+      el.className = 'mini-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg || '已完成';
+    el.classList.add('show');
+    clearTimeout(el._tid);
+    el._tid = setTimeout(()=>{ el.classList.remove('show'); }, 1600);
+  }catch(_){}
+}
+</script>
+
 </body>
 </html>
