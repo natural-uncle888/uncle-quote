@@ -170,6 +170,8 @@ function fmtDate(s){
 function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
 
 function applyClientSortAndFilter(){
+  // 依期間篩選（預設=本月）
+  const [start, end] = getSelectedPeriodRange();
   const tbody = $("#rows");
   const rows = Array.from(tbody.querySelectorAll("tr")).filter(tr=> tr.querySelector(".id-mono"));
 
@@ -187,7 +189,9 @@ function applyClientSortAndFilter(){
     const visible = (CURRENT_FILTER === 'all') ||
                     (CURRENT_FILTER === 'active' && !isCancelled) ||
                     (CURRENT_FILTER === 'cancelled' && isCancelled);
-    tr.classList.toggle('d-none', !visible);
+    const ts = parseInt(tr.getAttribute('data-ts') || 'NaN', 10);
+    const inRange = withinRange(ts, start, end);
+    tr.classList.toggle('d-none', !(visible && inRange));
   });
 }
 
@@ -250,6 +254,7 @@ function renderItems(items){
       <td class="id-mono small">${escapeHtml(it.id)}</td>
       <td>
         <div class="btn-group">
+          <button class="btn btn-danger btn-sm delete">刪除</button>
           <a class="btn btn-primary btn-sm" href="${it.link}" target="_blank">開啟</a>
           <button class="btn btn-outline-secondary btn-sm copy">複製連結</button>
         </div>
@@ -259,6 +264,30 @@ function renderItems(items){
       try{ await navigator.clipboard.writeText(it.link);
            const b=tr.querySelector(".copy"); const t=b.textContent; b.textContent="已複製"; setTimeout(()=>b.textContent=t,1200);
       }catch(_){ alert("複製失敗"); }
+    });
+    // 刪除按鈕
+    tr.querySelector(".delete").addEventListener("click", async ()=>{
+      if (!confirm("確定要刪除這筆報價單嗎？此動作無法復原。")) return;
+      try{
+        const url = new URL("/.netlify/functions/delete", ORIGIN);
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ id: it.id })
+        });
+        if (!r.ok) {
+          const txt = await r.text();
+          alert("刪除失敗：" + txt);
+          return;
+        }
+        tr.remove();
+        seen.delete(it.public_id || it.id);
+        updateStats();
+        recomputeAggregates();
+      }catch(err){
+        console.error(err);
+        alert("刪除失敗，請稍後再試");
+      }
     });
     frag.appendChild(tr);
 
@@ -285,29 +314,6 @@ function renderItems(items){
   updateStats();
 }
 
-
-// 期間選擇變更 → 重新套用篩選
-document.getElementById('periodSel')?.addEventListener('change', ()=>{
-  const val = document.getElementById('periodSel').value;
-  const sd = document.getElementById('startDate');
-  const ed = document.getElementById('endDate');
-  if (val === 'custom'){ sd?.classList.remove('d-none'); ed?.classList.remove('d-none'); }
-  else { sd?.classList.add('d-none'); ed?.classList.add('d-none'); }
-  applyClientSortAndFilter();
-  recomputeAggregates();
-});
-
-// 自訂日期輸入 → 重新套用篩選
-document.getElementById('startDate')?.addEventListener('change', ()=>{ applyClientSortAndFilter(); recomputeAggregates(); });
-document.getElementById('endDate')?.addEventListener('change', ()=>{ applyClientSortAndFilter(); recomputeAggregates(); });
-
-// 初始：確保自訂日期欄位隱藏（預設本月）
-(function(){
-  const val = document.getElementById('periodSel')?.value || 'month';
-  const sd = document.getElementById('startDate');
-  const ed = document.getElementById('endDate');
-  if (val !== 'custom'){ sd?.classList.add('d-none'); ed?.classList.add('d-none'); }
-})();
 async function load(next=""){ 
   try {
     $("#moreBtn").classList.add("d-none");
@@ -354,12 +360,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const isCustom = v === 'custom';
     startInp.classList.toggle('d-none', !isCustom);
     endInp.classList.toggle('d-none', !isCustom);
+    applyClientSortAndFilter();
     recomputeAggregates();
   });
-  startInp?.addEventListener('change', recomputeAggregates);
-  endInp?.addEventListener('change', recomputeAggregates);
+  startInp?.addEventListener('change', ()=>{ applyClientSortAndFilter(); recomputeAggregates(); });
+  endInp?.addEventListener('change', ()=>{ applyClientSortAndFilter(); recomputeAggregates(); });
 
-  $('#exportCsv')?.addEventListener('click', exportCsv);
+  
+  /* init period inputs */
+  {
+    const v = selPeriod?.value || 'month';
+    const isCustom = v === 'custom';
+    startInp.classList.toggle('d-none', !isCustom);
+    endInp.classList.toggle('d-none', !isCustom);
+  }
+$('#exportCsv')?.addEventListener('click', exportCsv);
 
   load();
 });
