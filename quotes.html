@@ -25,6 +25,7 @@
 <div class="container py-4">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h1 class="page-title m-0">📄 報價單總覽</h1>
+<h5 id="monthLabel" class="mt-2 mb-3 text-secondary text-center"></h5>
     <div>
       <a href="./" class="btn btn-outline-primary">＋ 建立新報價單</a>
     </div>
@@ -404,5 +405,19 @@ function exportCsv(){
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 </script>
+
+<script>
+function updateMonthLabel(){
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const label = document.getElementById('monthLabel');
+  if(label){
+    label.textContent = `📅 顯示 ${y} 年 ${m} 月 報價單`;
+  }
+}
+document.addEventListener('DOMContentLoaded', updateMonthLabel);
+</script>
+
 </body>
 </html>
