@@ -250,6 +250,7 @@ function renderItems(items){
       <td class="id-mono small">${escapeHtml(it.id)}</td>
       <td>
         <div class="btn-group">
+          <button class="btn btn-danger btn-sm delete">刪除</button>
           <a class="btn btn-primary btn-sm" href="${it.link}" target="_blank">開啟</a>
           <button class="btn btn-outline-secondary btn-sm copy">複製連結</button>
         </div>
@@ -259,6 +260,30 @@ function renderItems(items){
       try{ await navigator.clipboard.writeText(it.link);
            const b=tr.querySelector(".copy"); const t=b.textContent; b.textContent="已複製"; setTimeout(()=>b.textContent=t,1200);
       }catch(_){ alert("複製失敗"); }
+    });
+    // 刪除按鈕
+    tr.querySelector(".delete").addEventListener("click", async ()=>{
+      if (!confirm("確定要刪除這筆報價單嗎？此動作無法復原。")) return;
+      try{
+        const url = new URL("/.netlify/functions/delete", ORIGIN);
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ id: it.id })
+        });
+        if (!r.ok) {
+          const txt = await r.text();
+          alert("刪除失敗：" + txt);
+          return;
+        }
+        tr.remove();
+        seen.delete(it.public_id || it.id);
+        updateStats();
+        recomputeAggregates();
+      }catch(err){
+        console.error(err);
+        alert("刪除失敗，請稍後再試");
+      }
     });
     frag.appendChild(tr);
 
