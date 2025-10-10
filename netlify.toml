@@ -26,3 +26,9 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+
+[[redirects]]
+  from = "/api/delete"
+  to   = "/.netlify/functions/delete"
+  status = 200
