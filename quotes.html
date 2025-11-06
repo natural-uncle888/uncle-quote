@@ -1,6 +1,35 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
+
+<script>
+  // Guard against extension-injected cross-origin CSS rules errors
+  function isCrossOriginCssRulesError(msg) {
+    msg = String(msg || '');
+    return msg.includes('CSSStyleSheet') && (msg.includes('rules') || msg.includes('cssRules'));
+  }
+  window.addEventListener('error', function (e) {
+    const src = String(e?.filename || '');
+    const msg = String(e?.message || '');
+    if (src.startsWith('chrome-extension://') || src.startsWith('moz-extension://')) {
+      e.preventDefault?.();
+      return true;
+    }
+    if (isCrossOriginCssRulesError(msg)) {
+      e.preventDefault?.();
+      return true;
+    }
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    const reason = e?.reason;
+    const msg = String(reason?.message || reason || '');
+    if (isCrossOriginCssRulesError(msg)) {
+      e.preventDefault?.();
+      return true;
+    }
+  }, true);
+</script>
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>報價單總覽</title>

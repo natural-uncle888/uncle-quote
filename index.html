@@ -2,6 +2,35 @@
 
 <html lang="zh-TW">
 <head>
+
+<script>
+  // Guard against extension-injected cross-origin CSS rules errors
+  function isCrossOriginCssRulesError(msg) {
+    msg = String(msg || '');
+    return msg.includes('CSSStyleSheet') && (msg.includes('rules') || msg.includes('cssRules'));
+  }
+  window.addEventListener('error', function (e) {
+    const src = String(e?.filename || '');
+    const msg = String(e?.message || '');
+    if (src.startsWith('chrome-extension://') || src.startsWith('moz-extension://')) {
+      e.preventDefault?.();
+      return true;
+    }
+    if (isCrossOriginCssRulesError(msg)) {
+      e.preventDefault?.();
+      return true;
+    }
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    const reason = e?.reason;
+    const msg = String(reason?.message || reason || '');
+    if (isCrossOriginCssRulesError(msg)) {
+      e.preventDefault?.();
+      return true;
+    }
+  }, true);
+</script>
+
 <meta charset="utf-8"/>
 <title>自然大叔 線上報價單</title>
 <link href="https://res.cloudinary.com/dijzndzw2/image/upload/v1757176751/logo-3_hddq08.png" rel="icon" type="image/png"/>
@@ -270,7 +299,168 @@ html, body { overflow-x: hidden; }
 .mobile-bottom-bar .action-share{
   flex: 1 1 0;
 }
-</style></head>
+</style>
+<style>
+.promo-card{border:1px solid #eee;border-radius:12px;padding:12px;margin:12px 0;background:#fff}
+.promo-header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.promo-row,.promo-rule{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+.promo-rules-head{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.promo-rule select,.promo-rule input{max-width:160px}
+.promo-footer{display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #ddd;padding-top:8px;margin-top:8px}
+.promo-summary{opacity:.7}
+.rule-field{display:flex;align-items:center;gap:6px}
+.rule-field input{max-width:140px}
+.rule-label-threshold,.rule-label-amount{font-size:.9em;opacity:.8}
+</style>
+
+
+<style>
+/* 美化活動優惠區塊 */
+.promo-card{border:1px solid #e9edf3;border-radius:14px;padding:12px 14px;margin:14px 0;background:linear-gradient(180deg,#ffffff, #fcfdff);box-shadow:0 2px 6px rgba(20,30,50,.06)}
+.promo-header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:6px;border-bottom:1px dashed #e5e9f0}
+.promo-summary{font-weight:600;opacity:.9}
+.promo-row{display:flex;gap:10px;align-items:center;margin:10px 0;flex-wrap:wrap}
+.promo-row .lbl{font-weight:600}
+.promo-rules{margin-top:6px}
+.promo-rule{display:flex;gap:8px;align-items:center;margin:8px 0;padding:8px 10px;background:#f8fbff;border:1px solid #e6eef7;border-radius:10px}
+.promo-rule select,.promo-rule input{max-width:180px}
+.promo-footer{display:flex;justify-content:space-between;align-items:center;border-top:1px dashed #e5e9f0;padding-top:8px;margin-top:10px}
+.rule-field{display:flex;align-items:center;gap:6px}
+.rule-label-threshold,.rule-label-amount{font-size:.9em;color:#6b778c}
+#btnAddPromoRule{border:1px solid #d0d7e2;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
+#btnAddPromoRule:hover{background:#f2f6fb}
+</style>
+
+
+<style>
+/* 唯讀視圖：活動優惠鎖定 */
+.promo-card.readonly { opacity: .95 }
+.promo-card.readonly input,
+.promo-card.readonly select { background:#f7f7f9; pointer-events:none }
+.promo-card.readonly button { display:none !important }
+</style>
+
+
+<style>
+/* 強化：活動優惠摘要更醒目 & 卡片圓角更柔 */
+.promo-card{
+  border:1px solid #e6ebf3;
+  border-radius:20px;
+  padding:14px 16px;
+  margin:16px 0;
+  background:linear-gradient(180deg,#ffffff, #fbfdff);
+  box-shadow:0 6px 18px rgba(28,52,84,.06);
+}
+.promo-header{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding-bottom:8px;border-bottom:1px dashed #e5e9f0;
+}
+/* 讓「活動優惠 -$xxx」像膠囊徽章一樣醒目 */
+.promo-summary{
+  font-weight:700;
+  font-size:1.125rem; /* 18px */
+  color:#b4231a;
+  background:rgba(244,63,54,.10);
+  padding:4px 12px;
+  border-radius:999px;
+  line-height:1.2;
+}
+/* 規則列卡片也更圓潤 */
+.promo-rule{
+  display:flex;gap:8px;align-items:center;margin:8px 0;
+  padding:10px 12px;background:#f8fbff;border:1px solid #e6eef7;border-radius:14px;
+}
+/* 總額區塊中的「活動優惠」列更醒目 */
+#totalContainer .promo-row-total span{
+  font-weight:700; color:#0f172a;
+}
+#totalContainer .promo-row-total strong{
+  font-weight:800; font-size:1.125rem;
+  color:#b4231a; /* 接近 text-danger 但更溫和 */
+}
+/* 唯讀樣式維持，但配合新圓角 */
+.promo-card.readonly input,
+.promo-card.readonly select{ background:#f7f7f9; }
+</style>
+
+
+<style>
+/* 活動優惠：表單輸入美化（圓角、邊框、聚焦效果） */
+.promo-card select,
+.promo-card input[type="text"],
+.promo-card input[type="number"]{
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #d6dbe6;
+  background: #fff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0);
+}
+
+.promo-card select:focus,
+.promo-card input[type="text"]:focus,
+.promo-card input[type="number"]:focus{
+  border-color: #8bb1ff;
+  box-shadow: 0 0 0 3px rgba(51, 128, 255, .18);
+  outline: none;
+  background: #fbfdff;
+}
+
+.promo-card select:disabled,
+.promo-card input[type="text"]:disabled,
+.promo-card input[type="number"]:disabled{
+  background: #f7f8fb;
+  color: #6b7280;
+}
+
+.promo-card .ck input[type="checkbox"]{
+  width: 16px; height: 16px;
+  border-radius: 6px;
+  border: 1px solid #cfd6e3;
+  accent-color: #1d4ed8;
+}
+
+.promo-card button{
+  border-radius: 12px;
+  border: 1px solid #d0d7e2;
+  padding: 8px 12px;
+}
+
+.promo-card .rule-field{ gap: 10px; }
+.promo-card .rule-rule, .promo-card .promo-row{ gap: 10px; }
+</style>
+
+
+<style id="promo-row-highlight">
+/* 僅強化合計上方的「活動優惠 -$金額」；不影響其他版位 */
+#totalContainer .promo-row-total{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 6px 0 8px;
+  border: 1px solid #ffd5d2;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff8f7, #ffffff);
+  box-shadow: 0 1px 6px rgba(244, 63, 54, .06);
+}
+#totalContainer .promo-row-total span{
+  font-weight: 800;
+  color: #8f2121;
+}
+#totalContainer .promo-row-total strong{
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #b4231a;
+}
+</style>
+
+</head>
 <body>
 <div class="d-none" id="cancelBanner">⚠️ 本報價單已作廢</div>
 <div class="container-quote">
@@ -383,7 +573,68 @@ html, body { overflow-x: hidden; }
 <h5 class="section-title">其他事項</h5>
 <textarea class="form-control" id="otherNotes" rows="3">最終費用將依現場實際狀況進行調整，如有額外項目，將事前與您說明與報價。</textarea>
 <!-- 合計 -->
-<div id="totalContainer"></div><div class="form-check mt-2"><div id="taxToggleGroup" class="form-check mt-2"><input class="form-check-input" id="toggleTax" type="checkbox"/><label class="form-check-label" for="toggleTax">顯示含稅金額</label></div></div>
+<div id="totalContainer"></div><div class="form-check mt-2">
+<!-- === 活動優惠（在稅金之前）=== -->
+<details id="promoCard" class="card promo-card" open>
+  <summary class="promo-header">
+    <strong>活動優惠</strong>
+    <span id="promoSummary" class="promo-summary">- $0</span>
+  </summary>
+
+  <div class="promo-row">
+    <label class="lbl">優惠名稱</label>
+    <select id="promoPreset">
+      <option value="none">（不使用）</option>
+      <option value="new-year">新年換新優惠</option>
+      <option value="anniv-5">五周年優惠活動</option>
+      <option value="year-end">年底大掃除活動</option>
+      <option value="custom">自訂名稱…</option>
+    </select>
+    <input id="promoCustomName" type="text" placeholder="輸入自訂名稱" style="display:none;">
+  </div>
+
+  <div class="promo-rules">
+    <div class="promo-rules-head">
+      <span>規則</span>
+      <button type="button" id="btnAddPromoRule">＋新增規則</button>
+    </div>
+
+    <!-- 規則清單容器 -->
+    <div id="promoRulesList"></div>
+
+    <!-- 規則列模板（隱藏，JS clone） -->
+    <template id="promoRuleTpl">
+      <div class="promo-rule">
+        <select class="rule-type">
+          <option value="flat">單一折扣（$）</option>
+          <option value="threshold-flat">滿多少折多少（$）</option>
+          <option value="threshold-rate">滿多少打幾折（%）</option>
+        </select>
+        <div class="rule-field rule-field-threshold">
+          <label class="rule-label-threshold">滿多少（$）</label>
+          <input class="rule-threshold" type="number" min="0" step="1" placeholder="例：滿 8,000" />
+        </div>
+        <div class="rule-field rule-field-amount">
+          <label class="rule-label-amount">折多少（$）</label>
+          <input class="rule-amount" type="number" min="0" step="1" placeholder="例：折 500" />
+        </div>
+        <label class="ck">
+          <input class="rule-stack" type="checkbox" />
+          可疊加
+        </label>
+        <input class="rule-cap" type="number" min="0" step="1" placeholder="封頂金額（選填）" title="最多折抵多少金額（選填）" />
+        <button type="button" class="rule-remove">刪除</button>
+      </div>
+    </template>
+  </div>
+
+  <div class="promo-footer">
+    <span>活動優惠小計</span>
+    <strong id="promoTotal">- $0</strong>
+  </div>
+</details>
+<!-- === /活動優惠 === -->
+<div id="taxToggleGroup" class="form-check mt-2"><input class="form-check-input" id="toggleTax" type="checkbox"/><label class="form-check-label" for="toggleTax">顯示含稅金額</label></div></div>
 <!-- Payment Methods (Enhanced) -->
 <section class="mt-3" id="payment">
 <div class="payment-highlight d-flex align-items-center gap-2 p-3 mb-2 rounded-3">
@@ -623,5 +874,20 @@ html, body { overflow-x: hidden; }
   // 若此腳本在 DOMContentLoaded 之後插入，立即執行一次
   applyMobileBarLogic();
 })();
-</script></body>
+</script>
+<!-- 美化：同意報價說明彈窗（scoped） -->
+<div id="confirmModal" class="confirm-modal-backdrop" hidden>
+  <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+    <header>
+      <div id="confirmModalTitle">已收到您的同意<span class="badge">感謝配合</span></div>
+      <button type="button" id="confirmModalClose" class="btn">關閉</button>
+    </header>
+    <div class="body" id="confirmModalBody"></div>
+    <div class="actions">
+      <button type="button" id="confirmModalOk" class="btn primary">確定</button>
+    </div>
+  </div>
+</div>
+
+</body>
 </html>

@@ -263,13 +263,13 @@ async function handleConfirmSubmit(clickedBtn){
   try{
     if (clickedBtn){ clickedBtn.disabled = true; clickedBtn.textContent = "送出中…"; }
 
-    const payload = collectShareData();
+    let payload = collectShareData(); if (typeof window.__augmentPayloadWithPromo==='function') payload = window.__augmentPayloadWithPromo(payload);
     let cid = null;
     const hash = location.hash || "";
     const cidFromHash = hash.startsWith("#cid=") ? decodeURIComponent(hash.replace("#cid=","")) : "";
     if (cidFromHash) { cid = cidFromHash; payload.cloudinaryId = cid; }
 
-    const res = await fetch("/.netlify/functions/confirm", {
+    const res = await fetch("/api/confirm", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
     });
     if(!res.ok){
@@ -279,7 +279,8 @@ async function handleConfirmSubmit(clickedBtn){
     }
     await res.json();
 
-    alert(`✅ 感謝您的確認，我們明日見囉！😊
+    
+      window.__confirmModalShow && window.__confirmModalShow(`✅ 感謝您的確認，我們明日見囉！😊
 
 為確保清洗順利進行，煩請提前清出冷氣室內機下方空間，以便擺放 A 字梯。
 
@@ -291,10 +292,11 @@ async function handleConfirmSubmit(clickedBtn){
 如有異動也歡迎提前與我們聯繫，謝謝您配合！
 
 — 自然大叔 敬上`);
+    
 
     if (cid) {
       try{
-        await fetch("/.netlify/functions/lock", {
+        await fetch("/api/lock", {
           method:"POST", headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({ id: cid })
         });
@@ -320,13 +322,22 @@ qs('#confirmBtnMobile')?.addEventListener('click', function(){ handleConfirmSubm
    產生分享連結
 ===================== */
 async function handleShareClick(){
+  let clickedBtn = (document.activeElement && (document.activeElement.id==='shareLinkBtn' || document.activeElement.id==='shareLinkBtnMobile')) ? document.activeElement : null;
+  const originalText = clickedBtn ? clickedBtn.textContent : '';
+  if (clickedBtn) { clickedBtn.disabled = true; clickedBtn.textContent = '產生中…'; }
   try{
-    const payload = collectShareData();
-    const res = await fetch("/.netlify/functions/share", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+    let payload = collectShareData(); if (typeof window.__augmentPayloadWithPromo === 'function') payload = window.__augmentPayloadWithPromo(payload);
+    // timeout 15s with AbortController
+    const ac = new AbortController();
+    const to = setTimeout(()=>ac.abort(), 15000);
+    const res = await fetch("/api/share", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      signal: ac.signal
     });
-    if(!res.ok){ const t = await res.text(); alert("產生連結失敗：" + t); return; }
-    const data = await res.json();
+    clearTimeout(to);
+    if(!res.ok){ const t = await res.text().catch(()=> ''); alert("產生連結失敗：" + (t||("HTTP "+res.status))); return; }
+    const raw = await res.text();
+    let data; try{ data = JSON.parse(raw); }catch(_){ data = {}; }
     const href = data.share_url || data.pdf_url || "#";
     
     // Append tax preference as query param to the share link
@@ -336,7 +347,7 @@ async function handleShareClick(){
       urlObj.searchParams.set('tax', taxOn ? '1' : '0');
       var hrefWithTax = urlObj.toString();
     } catch(_) { var hrefWithTax = href; }
-const box = qs("#shareLinkBox");
+    const box = qs("#shareLinkBox");
     removeClass(box, "d-none");
     box.innerHTML = `
       <div class="mb-1 fw-bold">專屬報價單網址</div>
@@ -354,6 +365,8 @@ const box = qs("#shareLinkBox");
       }catch(_){ alert("複製失敗，請手動選取複製"); }
     });
   }catch(err){ console.error(err); alert("產生連結失敗，請稍後再試。"); }
+  finally { if (clickedBtn){ clickedBtn.disabled=false; clickedBtn.textContent=originalText||'產生連結'; } }
+
 }
 qs("#shareLinkBtn")?.addEventListener("click", handleShareClick);
 qs('#shareLinkBtnMobile')?.addEventListener('click', handleShareClick);
@@ -628,6 +641,7 @@ document.addEventListener('DOMContentLoaded', function(){
     setMobileBottomBar(!(isCancelled || isLocked));
   }catch(_){ /* ignore */ }
 applyReadOnlyData(data); 
+      if (data && data.promo && typeof window.__applyPromoFromData==='function') { window.__applyPromoFromData(data.promo); }
       applyMobileLabels();
       setReadonlyButtonsVisibility(!locked);
 
@@ -959,3 +973,234 @@ document.addEventListener('DOMContentLoaded', function(){
 
   qs('#toggleTax')?.addEventListener('change', updateTotals);
 });
+
+
+/* =========================
+   __PROMO_MODULE_V2__ 活動優惠模組（輕量注入）
+========================= */
+(function(){
+  if (window.__promoInjected) return; window.__promoInjected = true;
+  const $ = (s)=>document.querySelector(s);
+
+  // 狀態與預設
+  const state = { nameType:'none', presetKey:'none', customName:'', rules:[] };
+  const PRESETS = {
+    "new-year": { name: "新年換新優惠", rules: [
+      {type:"threshold-flat", threshold:8000, amount:500, stack:true, cap:null},
+      {type:"threshold-rate", threshold:12000, amount:5, stack:false, cap:null}
+    ]},
+    "anniv-5": { name: "五周年優惠活動", rules: [
+      {type:"flat", amount:200, threshold:0, stack:true, cap:null},
+      {type:"threshold-rate", threshold:10000, amount:10, stack:false, cap:2000}
+    ]},
+    "year-end": { name: "年底大掃除活動", rules: [
+      {type:"threshold-flat", threshold:6000, amount:300, stack:true, cap:null},
+      {type:"threshold-flat", threshold:12000, amount:700, stack:true, cap:null}
+    ]}
+  };
+
+  const toInt = (v)=>{ v=Number(v); return Number.isFinite(v)?Math.max(0,Math.floor(v)):0; };
+  const currentName = ()=> state.nameType==='preset' ? (PRESETS[state.presetKey]?.name || '活動優惠') : (state.nameType==='custom' ? (state.customName||'活動優惠') : '活動優惠');
+
+  function renderSummary(discount){
+    const sum=$('#promoSummary'), tot=$('#promoTotal'), n=currentName();
+    if (sum) sum.textContent = n + ' - $' + toInt(discount||0);
+    if (tot) tot.textContent = '- $' + toInt(discount||0);
+  }
+
+  function getSubtotal(){
+    let total=0; document.querySelectorAll('#quoteTable tbody tr .subtotal').forEach(el=>{ total+= Number((el.textContent||'').replace(/[^\d.-]/g,''))||0; });
+    return Math.max(0, Math.round(total));
+  }
+
+  function computeDiscount(subtotal, rules){
+    if (!rules || subtotal<=0) return 0;
+    let dsum=0;
+    for (const r of rules){
+      let d=0, th=toInt(r.threshold||0), amt=toInt(r.amount||0);
+      if (r.type==='flat') d = amt;
+      else if (r.type==='threshold-flat'){ if(subtotal>=th) d=amt; }
+      else if (r.type==='threshold-rate'){ if(subtotal>=th) d=Math.round(subtotal*(amt/100)); }
+      if (r.cap!=null) d = Math.min(d, toInt(r.cap));
+      d = Math.max(0,d);
+      dsum += d;
+      if (!r.stack && d>0) break;
+    }
+    return Math.min(dsum, subtotal);
+  }
+
+  function bindUI(){
+    const preset=$('#promoPreset'), custom=$('#promoCustomName'), addBtn=$('#btnAddPromoRule'), list=$('#promoRulesList'), tpl=$('#promoRuleTpl');
+    function renderRules(){
+      if(!list||!tpl) return; list.innerHTML='';
+      state.rules.forEach((rule,idx)=>{
+        const node = tpl.content.firstElementChild.cloneNode(true);
+        const type=node.querySelector('.rule-type'), th=node.querySelector('.rule-threshold'), amt=node.querySelector('.rule-amount'), st=node.querySelector('.rule-stack'), cap=node.querySelector('.rule-cap'), rm=node.querySelector('.rule-remove');
+        type.value=rule.type; if(th) th.value=rule.threshold||0; if(amt) amt.value=rule.amount||0; if(st) st.checked=!!rule.stack; if(cap) cap.value=(rule.cap??'');
+        function updateLabels(){
+          const thWrap = node.querySelector('.rule-field-threshold'); const lth=node.querySelector('.rule-label-threshold'); const lam=node.querySelector('.rule-label-amount');
+          if (rule.type==='flat'){ if(thWrap) thWrap.style.display='none'; if(lam) lam.textContent='折多少（$）'; if(amt){ amt.placeholder='例：折 300'; amt.title='直接折抵多少金額'; } }
+          else if (rule.type==='threshold-flat'){ if(thWrap) thWrap.style.display=''; if(lth) lth.textContent='滿多少（$）'; if(lam) lam.textContent='折多少（$）'; if(th){ th.placeholder='例：滿 8,000'; th.title='達到此金額門檻才會套用'; } if(amt){ amt.placeholder='例：折 500'; amt.title='達門檻後折抵多少金額'; } }
+          else { if(thWrap) thWrap.style.display=''; if(lth) lth.textContent='滿多少（$）'; if(lam) lam.textContent='折數（%）'; if(th){ th.placeholder='例：滿 12,000'; th.title='達到此金額門檻才會套用'; } if(amt){ amt.placeholder='例：10 = 9折'; amt.title='折扣百分比（10 表示 10% 折扣 ≈ 9折）'; } }
+        } updateLabels();
+        type.addEventListener('change',()=>{ if (document.getElementById('promoCard')?.classList.contains('readonly')) return; rule.type=type.value; updateLabels(); requestTotalsUpdate(); });
+        th?.addEventListener('input',()=>{ if (document.getElementById('promoCard')?.classList.contains('readonly')) return; rule.threshold=toInt(th.value); requestTotalsUpdate(); });
+        amt?.addEventListener('input',()=>{ if (document.getElementById('promoCard')?.classList.contains('readonly')) return; rule.amount=toInt(amt.value); requestTotalsUpdate(); });
+        st?.addEventListener('change',()=>{ if (document.getElementById('promoCard')?.classList.contains('readonly')) return; rule.stack=!!st.checked; requestTotalsUpdate(); });
+        cap?.addEventListener('input',()=>{ if (document.getElementById('promoCard')?.classList.contains('readonly')) return; rule.cap=cap.value===''?null:toInt(cap.value); requestTotalsUpdate(); });
+        rm?.addEventListener('click',()=>{ if (document.getElementById('promoCard')?.classList.contains('readonly')) return; state.rules.splice(idx,1); renderRules(); requestTotalsUpdate(); });
+        list.appendChild(node);
+      });
+    }
+    window.__renderPromoRules = renderRules;
+
+    if (preset) preset.addEventListener('change',()=>{
+      const v=preset.value;
+      if (v==='custom'){ state.nameType='custom'; state.presetKey='none'; if(custom){ custom.style.display=''; custom.focus(); } }
+      else if (v==='none'){ state.nameType='none'; state.presetKey='none'; if(custom) custom.style.display='none'; state.rules=[]; renderRules(); requestTotalsUpdate(); }
+      else { state.nameType='preset'; state.presetKey=v; if(custom) custom.style.display='none'; state.rules=(PRESETS[v]?.rules||[]).map(r=>Object.assign({}, r)); renderRules(); requestTotalsUpdate(); }
+    });
+    if (custom) custom.addEventListener('input',()=>{ state.customName=custom.value.trim(); renderSummary(); });
+    if (addBtn) addBtn.addEventListener('click',()=>{ state.rules.push({type:'flat',threshold:0,amount:0,stack:false,cap:null}); renderRules(); });
+  }
+
+  const orig = window.updateTotals;
+  if (typeof window.requestTotalsUpdate !== 'function'){ let t=null; window.requestTotalsUpdate=function(){ if(t) cancelAnimationFrame(t); t=requestAnimationFrame(()=>{ if(typeof window.updateTotals==='function') window.updateTotals(); }); }; }
+  window.updateTotals = function(){
+    const ret = (typeof orig==='function') ? orig() : undefined;
+    const subtotal = getSubtotal();
+    const rules = (window.__promoData && window.__promoData.rules) ? window.__promoData.rules : state.rules;
+    const discount = computeDiscount(subtotal, rules);
+    renderSummary(discount);
+    const after = Math.max(0, subtotal - discount);
+    const showTax = document.getElementById('toggleTax')?.checked === true;
+    const taxRate = 0.05;
+    const tax = showTax ? Math.round(after * taxRate) : 0;
+    const grand = after + tax;
+    const container = document.getElementById('totalContainer');
+    if (container){
+      const promoRow = '<div class="d-flex justify-content-between promo-row-total"><span>活動優惠</span><strong>- $'+discount+'</strong></div>';
+      container.innerHTML = showTax
+        ? '<div class="d-flex flex-column gap-1">'+promoRow+'<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">'+grand+'</span> 元</h5></div>'
+        : '<div class="d-flex flex-column gap-1">'+promoRow+'<h5 class="mt-3 total-banner">合計：<span id="total">'+grand+'</span> 元</h5></div>';
+    }
+    const mobile = document.getElementById('totalMobile'); if (mobile) mobile.textContent=String(grand);
+    window.__quoteTotals = { subtotal, promoDiscount:discount, taxableBase:after, tax, grandTotal:grand };
+    return window.__quoteTotals;
+  };
+
+  window.__augmentPayloadWithPromo = function(payload){
+    const totals = window.__quoteTotals || {};
+    payload.promo = {
+      nameType: state.nameType, presetKey: state.presetKey, customName: state.customName,
+      rules: state.rules,
+      computed: { discount: totals.promoDiscount||0, taxableBase: totals.taxableBase||null, tax: totals.tax||null, grandTotal: totals.grandTotal||null },
+      displayName: (state.nameType==='preset' ? (PRESETS[state.presetKey]?.name || '活動優惠') : (state.nameType==='custom' ? (state.customName || '活動優惠') : '活動優惠'))
+    };
+    return payload;
+  };
+  
+window.__applyPromoFromData = function(p){
+  try{
+    if (!p) return;
+    window.__promoData = p;
+
+    // Set preset/custom selection for display
+    var preset = document.getElementById('promoPreset');
+    var custom = document.getElementById('promoCustomName');
+    if (preset){
+      if (p.nameType === 'preset' && p.presetKey){
+        preset.value = p.presetKey;
+        if (custom) custom.style.display = 'none';
+      } else if (p.nameType === 'custom'){
+        preset.value = 'custom';
+        if (custom){ custom.style.display = ''; custom.value = p.customName || ''; }
+      } else {
+        preset.value = 'none';
+        if (custom) custom.style.display = 'none';
+      }
+    }
+
+    // Render rule list using saved rules (read-only)
+    var list = document.getElementById('promoRulesList');
+    var tpl  = document.getElementById('promoRuleTpl');
+    if (list && tpl){
+      list.innerHTML = '';
+      (p.rules || []).forEach(function(rule){
+        var node = tpl.content.firstElementChild.cloneNode(true);
+        var type = node.querySelector('.rule-type');
+        var th   = node.querySelector('.rule-threshold');
+        var amt  = node.querySelector('.rule-amount');
+        var st   = node.querySelector('.rule-stack');
+        var cap  = node.querySelector('.rule-cap');
+        var rm   = node.querySelector('.rule-remove');
+
+        if (type) type.value = rule.type || 'flat';
+        if (th) th.value = rule.threshold || 0;
+        if (amt) amt.value = rule.amount || 0;
+        if (st) st.checked = !!rule.stack;
+        if (cap) cap.value = (rule.cap == null ? '' : rule.cap);
+
+        // Make read-only
+        [type, th, amt, st, cap, rm].forEach(function(el){
+          if (!el) return;
+          if (el.tagName === 'BUTTON') { el.disabled = true; el.style.display = 'none'; }
+          else { el.disabled = true; el.readOnly = true; }
+        });
+
+        // Simple label visibility based on type
+        var thWrap = node.querySelector('.rule-field-threshold');
+        var lblAmt = node.querySelector('.rule-label-amount');
+        if (rule.type === 'flat'){
+          if (thWrap) thWrap.style.display = 'none';
+          if (lblAmt) lblAmt.textContent = '折多少（$）';
+        } else if (rule.type === 'threshold-flat'){
+          if (thWrap) thWrap.style.display = '';
+          if (lblAmt) lblAmt.textContent = '折多少（$）';
+        } else {
+          if (thWrap) thWrap.style.display = '';
+          if (lblAmt) lblAmt.textContent = '折數（%）';
+        }
+
+        list.appendChild(node);
+      });
+    }
+
+    // Update summary text with saved displayName
+    var summary = document.getElementById('promoSummary');
+    if (summary) summary.textContent = (p.displayName || '活動優惠') + ' - $' + (Number(p.computed?.discount || 0));
+
+    var total = document.getElementById('promoTotal');
+    if (total) total.textContent = '- $' + (Number(p.computed?.discount || 0));
+
+    // Trigger totals recalculation using saved rules
+    if (typeof requestTotalsUpdate === 'function') lockPromoReadOnly();
+    requestTotalsUpdate();
+  }catch(e){ console.warn('apply promo error', e); }
+};
+
+
+  document.addEventListener('DOMContentLoaded', ()=>{ bindUI(); renderSummary(0); });
+
+// ---- Read-only lock for promo UI ----
+function lockPromoReadOnly(){
+  try{
+    var card = document.getElementById('promoCard');
+    if (!card) return;
+    card.classList.add('readonly');
+    var addBtn = document.getElementById('btnAddPromoRule');
+    if (addBtn){ addBtn.disabled = true; addBtn.style.display = 'none'; }
+    var preset = document.getElementById('promoPreset');
+    var custom = document.getElementById('promoCustomName');
+    if (preset){ preset.disabled = true; }
+    if (custom){ custom.readOnly = true; custom.disabled = true; }
+    (card.querySelectorAll('#promoRulesList .promo-rule .rule-type, #promoRulesList .promo-rule .rule-threshold, #promoRulesList .promo-rule .rule-amount, #promoRulesList .promo-rule .rule-stack, #promoRulesList .promo-rule .rule-cap, #promoRulesList .promo-rule .rule-remove') || [])
+      .forEach(function(el){
+        if (!el) return;
+        if (el.tagName === 'BUTTON'){ el.disabled = true; el.style.display = 'none'; }
+        else { el.disabled = true; el.readOnly = true; }
+      });
+  }catch(_){}
+}
+
+})();
