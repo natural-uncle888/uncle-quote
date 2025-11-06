@@ -931,25 +931,69 @@ document.addEventListener('DOMContentLoaded', function(){
     sessionStorage.setItem(key, '1'); return false;
   }
 
-  window.__confirmModalShow = function(reasonText){
-    if (oncePerQuote()) return;
-    const backdrop = document.createElement('div');
-    backdrop.className = 'confirm-modal-backdrop';
-    const msg = reasonText ? `<br><br><strong>備註：</strong>${reasonText}` : '';
-    backdrop.innerHTML = [
-      '<div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">',
-        '<header><span id="confirm-modal-title">✅ 已確認</span><span class="badge">已封存</span></header>',
-        `<div class="body">此報價單已完成確認並封存，僅供查看。${msg}</div>`,
-        '<div class="actions">',
-          '<button class="btn primary" id="confirm-modal-ok">我知道了</button>',
-        '</div>',
-      '</div>'
-    ].join('');
-    document.body.appendChild(backdrop);
-    function close(){ if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop); }
-    document.getElementById('confirm-modal-ok').addEventListener('click', close);
-    backdrop.addEventListener('click', function(e){ if (e.target === backdrop) close(); });
+  window.__confirmModalShow = function (content) {
+  // 可選的一次性顯示規則
+  try { if (typeof oncePerQuote === 'function' && oncePerQuote()) return; } catch(_) {}
+
+  // 強制清除現有的 auto-close 計時器（保險做法）
+  try {
+    var maxId = setTimeout(function(){}, 0);
+    for (var id = 0; id <= maxId; id++) { clearTimeout(id); }
+  } catch(_){}
+
+  // 在彈窗開啟期間，暫時攔截 setTimeout，阻擋任何想移除彈窗的 callback
+  var realSetTimeout = window.setTimeout;
+  window.setTimeout = function(fn, delay){
+    try {
+      var s = String(fn || "");
+      if (s.indexOf('confirm-modal-backdrop') !== -1 ||
+          s.indexOf('confirmModal') !== -1 ||
+          s.indexOf('removeChild(backdrop)') !== -1) {
+        // 阻擋自動關閉
+        return 0;
+      }
+    } catch(_){}
+    return realSetTimeout.apply(window, arguments);
   };
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]); });
+  }
+
+  var text = (typeof content === 'string' && content.trim())
+    ? content.trim()
+    : "✅ 感謝您的確認，我們明日見囉！😊\n\n為確保清洗順利進行，煩請提前清出冷氣室內機下方空間，以便擺放 A 字梯。\n\n若下方為以下家具，將由現場人員視情況協助判斷是否可移動，敬請見諒：\n・大型衣櫃、書櫃等重物\n・無法移動之床或沙發\n・其他無法暫移之家具\n\n如有異動也歡迎提前與我們聯繫，謝謝您配合！\n\n— 自然大叔 敬上";
+
+  var isNoteOnly = (text.indexOf('\n') === -1 && text.length < 80);
+  if (isNoteOnly) {
+    text = "此報價單已完成確認並封存，僅供查看。" + (text ? ("\n\n備註：" + text) : "");
+  }
+
+  var backdrop = document.createElement('div');
+  backdrop.className = 'confirm-modal-backdrop';
+  backdrop.innerHTML =
+    '<div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">' +
+      '<header><span id="confirm-modal-title">✅ 已確認</span><span class="badge">已封存</span></header>' +
+      '<div class="body"><pre style="white-space:pre-wrap;line-height:1.6;margin:0;font-family:inherit;">' +
+        escapeHtml(text) +
+      '</pre></div>' +
+      '<div class="actions"><button class="btn primary" id="confirm-modal-ok">我知道了</button></div>' +
+    '</div>';
+
+  document.body.appendChild(backdrop);
+
+  function close(){
+    // 還原 setTimeout
+    try { window.setTimeout = realSetTimeout; } catch(_){}
+    if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+  }
+
+  document.getElementById('confirm-modal-ok').addEventListener('click', close);
+  // 點擊背板也可關閉
+  backdrop.addEventListener('click', function(e){ if (e.target === backdrop) close(); });
+
+  // 絕對不自動關閉：不使用 setTimeout 關閉
+};;
 })();
 // === End Confirmed Modal ===
 
