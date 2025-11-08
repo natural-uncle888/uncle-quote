@@ -889,5 +889,62 @@ html, body { overflow-x: hidden; }
   </div>
 </div>
 
+
+<!-- 作廢原因輸入 Modal -->
+<div class="modal fade" id="cancelReasonModal" tabindex="-1" aria-labelledby="cancelReasonLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="cancelReasonLabel">取消 / 作廢</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2 small text-muted">（可留空）若需要，請填寫取消/作廢原因：</div>
+        <textarea id="cancelReasonInput" class="form-control" rows="3" placeholder="例如：客戶改期、金額需重算…"></textarea>
+        <div class="form-text">提交後將把狀態設為「已作廢」，並同步於清單與檢視頁。</div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">先不要</button>
+        <button type="button" class="btn btn-danger" id="cancelReasonSubmit">確認作廢</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 已作廢完成 Modal -->
+<div class="modal fade" id="cancelDoneModal" tabindex="-1" aria-labelledby="cancelDoneLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="cancelDoneLabel">已作廢</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-start">
+          <div class="me-2 fs-3">✅</div>
+          <div>
+            <div class="fw-bold">此報價單已成功設為「作廢」。</div>
+            <div class="small text-muted" id="cancelDoneInfo">系統已更新標示與狀態。</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">知道了</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 右上角 Toast（行動裝置更醒目；也供唯讀提示使用） -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+  <div id="cancelToast" class="toast align-items-center border-0" role="status" aria-live="polite" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">報價單已作廢。</div>
+      <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="關閉"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
