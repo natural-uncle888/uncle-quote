@@ -2,33 +2,7 @@
 <html lang="zh-Hant">
 <head>
 
-<script>
-  // Guard against extension-injected cross-origin CSS rules errors
-  function isCrossOriginCssRulesError(msg) {
-    msg = String(msg || '');
-    return msg.includes('CSSStyleSheet') && (msg.includes('rules') || msg.includes('cssRules'));
-  }
-  window.addEventListener('error', function (e) {
-    const src = String(e?.filename || '');
-    const msg = String(e?.message || '');
-    if (src.startsWith('chrome-extension://') || src.startsWith('moz-extension://')) {
-      e.preventDefault?.();
-      return true;
-    }
-    if (isCrossOriginCssRulesError(msg)) {
-      e.preventDefault?.();
-      return true;
-    }
-  }, true);
-  window.addEventListener('unhandledrejection', function (e) {
-    const reason = e?.reason;
-    const msg = String(reason?.message || reason || '');
-    if (isCrossOriginCssRulesError(msg)) {
-      e.preventDefault?.();
-      return true;
-    }
-  }, true);
-</script>
+
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -48,7 +22,21 @@
     @media (max-width: 576px) {
       .toolbar-right .stats { width: 100%; min-width: 0; }
     }
-  </style>
+  
+  /* 作廢原因（顯示在狀態徽章下方） */
+  .reason-line{ color:#64748b; font-size:.85rem; margin-top:.25rem; max-width:32rem; }
+  .reason-line .label{ opacity:.9; margin-right:.25rem; }
+  .reason-line .txt{ display:inline-block; max-width:28rem; vertical-align:bottom; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  @media (max-width: 640px){ .reason-line .txt{ max-width: 16rem; } }
+
+</style>
+
+<style>
+  /* cancelled row color tweak */
+  .table-danger .badge { background-color:#dc3545 !important; color:#fff !important; }
+  .table-danger .btn-outline-secondary { border-color: rgba(255,255,255,.5); color:#fff; }
+</style>
+
 </head>
 <body>
 <div class="container py-4">
@@ -111,12 +99,13 @@
               <th style="width:12rem">建立時間</th>
               <th>客戶</th>
               <th>合計</th>
+              <th style="width:8rem">確認</th>
               <th>ID</th>
               <th style="width:10rem">動作</th>
             </tr>
           </thead>
           <tbody id="rows">
-            <tr><td colspan="5" class="text-center text-muted py-5">載入中…</td></tr>
+            <tr><td colspan="6" class="text-center text-muted py-5">載入中…</td></tr>
           </tbody>
         </table>
       </div>
@@ -127,7 +116,86 @@
   </div>
 </div>
 
+
+
+
+
+
+<!-- 作廢原因檢視 Modal -->
+<div class="modal fade" id="cancelReasonViewModal" tabindex="-1" aria-labelledby="cancelReasonViewLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="cancelReasonViewLabel">作廢原因</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+      </div>
+      <div class="modal-body">
+        <div id="cancelReasonViewText" class="text-break">（未填寫）</div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">知道了</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+<!-- 刪除確認 Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" id="deleteConfirmLabel">刪除報價單</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">確定要刪除這筆報價單嗎？此動作無法復原。</div>
+        <div class="small text-muted">ID：<span id="delIdText">—</span></div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-danger" id="deleteConfirmSubmit">我要刪除</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+</body>
+</html>
 <script>
+  // Guard against extension-injected cross-origin CSS rules errors
+  function isCrossOriginCssRulesError(msg) {
+    msg = String(msg || '');
+    return msg.includes('CSSStyleSheet') && (msg.includes('rules') || msg.includes('cssRules'));
+  }
+  window.addEventListener('error', function (e) {
+    const src = String(e?.filename || '');
+    const msg = String(e?.message || '');
+    if (src.startsWith('chrome-extension://') || src.startsWith('moz-extension://')) {
+      e.preventDefault?.();
+      return true;
+    }
+    if (isCrossOriginCssRulesError(msg)) {
+      e.preventDefault?.();
+      return true;
+    }
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    const reason = e?.reason;
+    const msg = String(reason?.message || reason || '');
+    if (isCrossOriginCssRulesError(msg)) {
+      e.preventDefault?.();
+      return true;
+    }
+  }, true);
+</script><script>
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 
@@ -254,7 +322,7 @@ function showError(msg){
   const tbody = document.querySelector("#rows");
   if (!tbody) return;
   const safe = String(msg||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  tbody.innerHTML = `<tr><td colspan="5" class="text-danger py-4 text-center">
+  tbody.innerHTML = `<tr><td colspan="6" class="text-danger py-4 text-center">
     載入失敗：${safe}<br>
     <small>請確認網域是否正確（目前：${ORIGIN}）與 Netlify Functions 是否已部署。</small>
   </td></tr>`;
@@ -264,7 +332,7 @@ function renderItems(items){
   const tbody = $("#rows");
   if (!items || !items.length){
     updateStats();
-    if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-5">沒有資料</td></tr>';
+    if (!tbody.children.length) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-5">沒有資料</td></tr>';
     return;
   }
   if (tbody.children.length === 1 && tbody.querySelector("td")?.textContent.includes("載入中")) tbody.innerHTML = "";
@@ -281,6 +349,7 @@ function renderItems(items){
       <td class="text-nowrap">${fmtDate(it.created_at)}</td>
       <td class="cust-cell text-muted small">—</td>
       <td class="total-cell fw-bold">—</td>
+      <td class="status-cell">—</td>
       <td class="id-mono small">${escapeHtml(it.id)}</td>
       <td>
         <div class="btn-group">
@@ -297,7 +366,7 @@ function renderItems(items){
     });
     // 刪除按鈕
     tr.querySelector(".delete").addEventListener("click", async ()=>{
-      if (!confirm("確定要刪除這筆報價單嗎？此動作無法復原。")) return;
+      const __ok = await new Promise(r => showDeleteConfirm({ id: it.id }, r)); if (!__ok) return;
       try{
         const url = new URL("/.netlify/functions/delete", ORIGIN);
         const r = await fetch(url, {
@@ -323,19 +392,55 @@ function renderItems(items){
 
     // Lazy 取詳細（客戶/合計/作廢狀態）
     fetchDetail(it.id).then(data=>{
-      const cust = (data?.data?.customer || "").trim() || (data?.resource?.context?.custom?.customer || "");
-      const total = (data?.data?.total || "").trim();
-      const cancelled = !!(data?.resource?.context?.custom?.status === "cancelled");
+      const cust = (data?.data?.customer || "").trim() || (data?.resource?.context?.custom?.customer || data?.context?.custom?.customer || "");
+      const promoComp = data?.data?.promo?.computed || null;
+      const displayTotalNum = Number((promoComp && (promoComp.grandTotal ?? promoComp.total)) ?? (data?.data?.total ?? 0));
+      const total = String(displayTotalNum);
+
+      const rtags = (data?.resource?.tags || data?.tags || []);
+      const ctxc = (data?.resource?.context?.custom || data?.context?.custom || {});
+      const cancelled = Boolean(
+        String(ctxc.status||'').toLowerCase()==='cancelled' || ctxc.canceled===true || ctxc.cancelled===true ||
+        (Array.isArray(rtags) && rtags.includes('cancelled'))
+      );
+      const locked = Boolean(
+        data?.locked===true || ctxc.locked===true || String(ctxc.locked)==='1' || String(ctxc.status||'').toLowerCase()==='confirmed' ||
+        (Array.isArray(rtags) && rtags.includes('locked'))
+      );
       const c = tr.querySelector(".cust-cell");
       const t = tr.querySelector(".total-cell");
       c.textContent = cust || "—";
       t.textContent = total ? (Number(total)||0).toLocaleString() + " 元" : "—";
       tr.setAttribute('data-cancelled', cancelled ? '1' : '0');
       tr.setAttribute('data-total', String(Number(total)||0));
-      if (cancelled){
-        tr.classList.add("table-warning");
-        t.insertAdjacentHTML("beforeend", ' <span class="badge bg-warning text-dark badge-pill ms-1">已作廢</span>');
+      const statusCell = tr.querySelector('.status-cell');
+      const statusText = cancelled ? '已作廢' : (locked ? '已確認' : '待確認');
+      const statusClass = cancelled ? 'bg-danger' : (locked ? 'bg-success' : 'bg-info');
+      // 解析作廢原因：優先 context.custom，再看 tags（unicode 版本優先）
+      const reasonRaw = (
+        ctxc.cancel_reason ||
+        (Array.isArray(rtags)
+          ? (rtags.find(t => t.startsWith('cancel_reason_u_')) ||
+             rtags.find(t => t.startsWith('cancel_reason_')) || '')
+          : '')
+      );
+      let reason = '';
+      try{
+        const v = String(reasonRaw||'').replace(/^cancel_reason_u?_/, '');
+        reason = decodeURIComponent(v.replace(/\+/g,' '));
+      }catch(_){ reason = String(reasonRaw||''); }
+
+      if (statusCell) {
+        const tip = reason ? ('原因：' + escapeHtml(reason)) : statusText;
+        statusCell.innerHTML =
+          `<span class="badge ${statusClass} badge-pill" title="${tip}">${statusText}</span>` +
+          (cancelled && reason
+            ? `<div class="reason-line"><span class="label">原因：</span><span class="txt">${escapeHtml(reason)}</span></div>`
+            : '');
       }
+      tr.setAttribute('data-status', cancelled ? 'cancelled' : (locked ? 'confirmed' : 'pending'));
+      if (cancelled){
+        tr.classList.add("table-danger");}
       applyClientSortAndFilter();
       recomputeAggregates();
     }).catch(()=>{ tr.setAttribute('data-cancelled','0'); }).finally(()=>{ updateStats(); recomputeAggregates(); });
@@ -411,7 +516,7 @@ $('#exportCsv')?.addEventListener('click', exportCsv);
 
 function exportCsv(){
   const rows = $$("#rows tr").filter(tr => !tr.classList.contains("d-none") && tr.querySelector(".id-mono"));
-  const header = ["建立時間","客戶","合計","ID","狀態","連結"];
+  const header = ["建立時間","客戶","合計","確認","ID","連結"];
   const lines = [header.join(",")];
   for (const tr of rows){
     const dt = tr.children[0]?.textContent.trim() || "";
@@ -420,7 +525,9 @@ function exportCsv(){
     const id = tr.querySelector(".id-mono")?.textContent.trim() || "";
     const cancelled = tr.getAttribute("data-cancelled") === "1";
     const link = tr.querySelector("a.btn.btn-primary")?.href || "";
-    const cells = [dt, cust, total, id, cancelled ? "已作廢" : "未作廢", link].map(x => `"${String(x).replace(/"/g,'""')}"`);
+    const status = tr.getAttribute("data-status") || "pending";
+const statusZh = status==="cancelled" ? "已作廢" : (status==="confirmed" ? "已確認" : "待確認");
+const cells = [dt, cust, total, statusZh, id, link].map(x => `"${String(x).replace(/"/g,'""')}"`);
     lines.push(cells.join(","));
   }
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -433,9 +540,7 @@ function exportCsv(){
   a.click();
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
 }
-</script>
-
-<script>
+</script><script>
 function updateMonthLabel(){
   const now = new Date();
   const y = now.getFullYear();
@@ -446,7 +551,42 @@ function updateMonthLabel(){
   }
 }
 document.addEventListener('DOMContentLoaded', updateMonthLabel);
-</script>
-
-</body>
-</html>
+</script><script>
+function showCancelReasonView(msg){
+  try{
+    const box = document.getElementById('cancelReasonViewText');
+    if (box) box.textContent = (msg && String(msg).trim()) ? String(msg) : '（未填寫）';
+    const Modal = (window.bootstrap || window.bootstrap5 || {}).Modal;
+    const el = document.getElementById('cancelReasonViewModal');
+    if (Modal && el){ new Modal(el).show(); } else { alert(box ? box.textContent : (msg || '（未填寫）')); }
+  }catch(_){ alert(msg || '（未填寫）'); }
+}
+</script><script>
+function showDeleteConfirm(meta, cb){
+  try{
+    var id = (meta && meta.id) || '';
+    var el = document.getElementById('deleteConfirmModal');
+    var idSpan = document.getElementById('delIdText');
+    if (idSpan) idSpan.textContent = id || '—';
+    var Modal = (window.bootstrap || window.bootstrap5 || {}).Modal;
+    if (!Modal || !el){
+      var ok = confirm('確定要刪除這筆報價單嗎？此動作無法復原。\nID：' + id);
+      cb && cb(!!ok);
+      return;
+    }
+    var m = new Modal(el, { backdrop:'static' });
+    var submit = document.getElementById('deleteConfirmSubmit');
+    function cleanup(){
+      try{
+        submit.removeEventListener('click', onOk);
+        el.removeEventListener('hidden.bs.modal', onHide);
+      }catch(_){}
+    }
+    function onOk(){ cleanup(); m.hide(); cb && cb(true); }
+    function onHide(){ cleanup(); cb && cb(false); }
+    submit.addEventListener('click', onOk);
+    el.addEventListener('hidden.bs.modal', onHide, { once:true });
+    m.show();
+  }catch(e){ cb && cb(!!confirm('確定要刪除這筆報價單嗎？此動作無法復原。')); }
+}
+</script><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

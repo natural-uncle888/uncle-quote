@@ -34,7 +34,7 @@ export async function handler(event){
         "cancelled",
         `cancel_time_${nowISO}`,
       ];
-      if(reason) tags.push(`cancel_reason_${sanitize(reason)}`);
+      if(reason){ tags.push(`cancel_reason_${sanitize(reason)}`); tags.push(`cancel_reason_u_${encodeURIComponent(reason)}`); }
 
       const r = await fetch(url, {
         method:"POST",

@@ -536,21 +536,11 @@ function setupCancelButtonsVisibility(payload){
 
   if (show){
     if (!qs('#cancelBtnDesktop')?.dataset.bound){
-      qs('#cancelBtnDesktop')?.addEventListener('click', ()=>{
-        const _input = prompt('請輸入取消/作廢原因（可留空）：');
-        if (_input === null) { return; }
-        const reason = _input || '';
-        callCancel(reason);
-      });
+      qs('#cancelBtnDesktop')?.addEventListener('click', async ()=>{ const ans = await askCancelReason(); if(!ans) return; const {reason, lock} = ans; callCancel(reason, lock); });
       if (qs('#cancelBtnDesktop')) qs('#cancelBtnDesktop').dataset.bound = '1';
     }
     if (!qs('#cancelBtnMobile')?.dataset.bound){
-      qs('#cancelBtnMobile')?.addEventListener('click', ()=>{
-        const _input = prompt('請輸入取消/作廢原因（可留空）：');
-        if (_input === null) { return; }
-        const reason = _input || '';
-        callCancel(reason);
-      });
+      qs('#cancelBtnMobile')?.addEventListener('click', async ()=>{ const ans = await askCancelReason(); if(!ans) return; const {reason, lock} = ans; callCancel(reason, lock); });
       if (qs('#cancelBtnMobile')) qs('#cancelBtnMobile').dataset.bound = '1';
     }
   }
@@ -700,7 +690,7 @@ applyReadOnlyData(data);
 
 
 // ========== 補上取消動作（ChatGPT Patch） ==========
-async function callCancel(reason) {
+async function callCancel(reason, lock) {
   const id = getCid();
   if (!id) {
     alert("找不到報價單 ID，無法作廢。");
@@ -716,7 +706,7 @@ async function callCancel(reason) {
     const res = await fetch("/api/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, reason: reason || "" })
+      body: JSON.stringify({ id, reason: reason || "", lock: !!lock })
     });
     let data = null;
     try { data = await res.json(); } catch(_) {}
@@ -735,7 +725,7 @@ async function callCancel(reason) {
     window.__QUOTE_CANCELLED__ = true;
     if (dBtn) dBtn.classList.add('d-none');
     if (mBtn) mBtn.classList.add('d-none');
-    alert("已作廢。");
+    niceAlert('已作廢。');
   } catch (err) {
     console.error("取消/作廢失敗：", err);
     alert("作廢失敗：" + (err.message || err));
@@ -914,43 +904,37 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 // === End Cancellation Warning Modal (debuggable & overrideable) ===
 
-// === Confirmed Modal (archived/locked) ===
+// === Confirmed Modal (archived/locked & custom thank-you, no auto-close) ===
 (function(){
-  if (typeof window.__confirmModalShow === 'function') return; // guard
+  // 可傳入自訂文字；若未提供則使用預設「已確認並封存」訊息
+  window.__confirmModalShow = function(customText){
+    const defaultText = '✅ 已確認\n此報價單已完成確認並封存，僅供查看。';
+    const text = (typeof customText === 'string' && customText.trim().length > 0) ? customText : defaultText;
 
-  function getQuoteId(){
-    try { if (window.quote && (window.quote.id||window.quote.qid||window.quote.uuid)) return String(window.quote.id||window.quote.qid||window.quote.uuid); } catch(e){}
-    const meta = document.querySelector('meta[name="quote:id"]'); if (meta && meta.content) return meta.content;
-    try { const u = new URL(window.location.href); return u.searchParams.get('qid')||u.searchParams.get('quote_id')||u.searchParams.get('id'); } catch(e){}
-    return null;
-  }
-  function oncePerQuote(){
-    const id = getQuoteId() || 'default';
-    const key = 'confirmModalShown:' + id;
-    if (sessionStorage.getItem(key)) return true;
-    sessionStorage.setItem(key, '1'); return false;
-  }
-
-  window.__confirmModalShow = function(reasonText){
-    if (oncePerQuote()) return;
     const backdrop = document.createElement('div');
     backdrop.className = 'confirm-modal-backdrop';
-    const msg = reasonText ? `<br><br><strong>備註：</strong>${reasonText}` : '';
+
+    // 將換行轉為 <br>，保留段落
+    const bodyHtml = text.replace(/\n/g, '<br/>');
+
     backdrop.innerHTML = [
       '<div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">',
-        '<header><span id="confirm-modal-title">✅ 已確認</span><span class="badge">已封存</span></header>',
-        `<div class="body">此報價單已完成確認並封存，僅供查看。${msg}</div>`,
+        '<header><span id="confirm-modal-title">通知</span></header>',
+        `<div class="body">${bodyHtml}</div>`,
         '<div class="actions">',
-          '<button class="btn primary" id="confirm-modal-ok">我知道了</button>',
+          '<button class="btn primary" id="confirm-modal-ok">關閉</button>',
         '</div>',
       '</div>'
     ].join('');
+
     document.body.appendChild(backdrop);
+
     function close(){ if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop); }
     document.getElementById('confirm-modal-ok').addEventListener('click', close);
+    // 允許點擊外層關閉；不自動關閉
     backdrop.addEventListener('click', function(e){ if (e.target === backdrop) close(); });
   };
-})();
+})(); 
 // === End Confirmed Modal ===
 
 document.addEventListener('DOMContentLoaded', function(){
@@ -1206,159 +1190,76 @@ function lockPromoReadOnly(){
 })();
 
 
-/* ========= Cancel UI Hotfix: capture-phase binding to use Modal without touching other logic ========= */
-(function(){
-  function __getBS(){ return (window.bootstrap || window.bootstrap5 || {}); }
-  function showCancelReasonModal(onSubmit){
-    try{
-      const modalEl = document.getElementById('cancelReasonModal');
-      const inputEl = document.getElementById('cancelReasonInput');
-      const submitEl = document.getElementById('cancelReasonSubmit');
-      if(!modalEl || !inputEl || !submitEl){
-        const v = (typeof prompt==='function') ? (prompt('請輸入取消/作廢原因（可留空）：')||'') : '';
-        onSubmit && onSubmit(v);
-        return;
-      }
-      inputEl.value='';
-      const Modal = __getBS().Modal;
-      const m = Modal ? new Modal(modalEl, {backdrop:'static'}) : null;
-      function done(v){ try{ submitEl.removeEventListener('click', onOk); modalEl.removeEventListener('hidden.bs.modal', onHide);}catch(_){}; if(m) m.hide(); onSubmit && onSubmit(v); }
-      function onOk(){ done((inputEl.value||'').trim()); }
-      function onHide(){ done(null); }
-      submitEl.addEventListener('click', onOk);
-      modalEl.addEventListener('hidden.bs.modal', onHide, {once:true});
-      if (m) m.show(); else { const v=(typeof prompt==='function') ? (prompt('請輸入取消/作廢原因（可留空）：')||'') : ''; onSubmit && onSubmit(v); }
-    }catch(_){ const v=(typeof prompt==='function') ? (prompt('請輸入取消/作廢原因（可留空）：')||'') : ''; onSubmit && onSubmit(v); }
-  }
-  function showCancelDoneUI(whenText, reason){
-    try{
-      const info = document.getElementById('cancelDoneInfo');
-      if (info){
-        const parts=[]; if(whenText) parts.push(`時間：${whenText}`); if(reason) parts.push(`原因：${reason}`);
-        info.textContent = parts.length? parts.join('　') : '系統已更新標示與狀態。';
-      }
-      const Modal = __getBS().Modal; const el = document.getElementById('cancelDoneModal'); if (Modal && el) new Modal(el).show();
-      const Toast = __getBS().Toast; const t = document.getElementById('cancelToast'); if (Toast && t) new Toast(t,{delay:2500}).show();
-    }catch(_){}
-  }
-  // replace plain alert after cancel success if exists
-  try{
-    const _oldCallCancel = window.callCancel;
-    if (typeof _oldCallCancel === 'function') {
-      window.callCancel = async function(reason){
-        await _oldCallCancel.apply(this, arguments);
-        try{ showCancelDoneUI(new Date().toLocaleString(), reason); }catch(_){}
-      };
-    }
-  }catch(_){}
-  function bind(el){
-    if (!el) return;
-    el.addEventListener('click', function(e){
-      // Capture-phase handler is registered below; this is fallback if not supported
+
+// ===== Modal helpers (enhanced, allow typing even in read-only pages) =====
+function nuOpenModal(el){ el.classList.remove('hidden'); document.documentElement.style.overflow='hidden'; }
+function nuCloseModal(el){ el.classList.add('hidden'); document.documentElement.style.overflow=''; }
+
+function askCancelReason() {
+  return new Promise((resolve) => {
+    const root = document.getElementById('cancel-modal');
+    const ta = document.getElementById('cancel-reason');
+    const lock = document.getElementById('cancel-lock');
+    const presets = document.getElementById('cancel-presets');
+    const btnOk = document.getElementById('cancel-submit');
+
+    // 解除任何全域唯讀/禁用（部分頁面會把所有 input/textarea 設 readonly/disabled）
+    if (ta) { ta.readOnly = false; ta.disabled = false; ta.removeAttribute('readonly'); ta.removeAttribute('disabled'); }
+    if (lock) { lock.disabled = false; lock.removeAttribute('disabled'); }
+
+    root.querySelectorAll('[data-close="1"]').forEach(el => el.onclick = () => { nuCloseModal(root); resolve(null); });
+
+    // chips
+    if (presets) presets.querySelectorAll('.nu-chip').forEach(chip => {
+      chip.onclick = () => { ta.value = chip.dataset.text || ''; ta.focus(); };
     });
-  }
-  function captureHandlerFactory(el){
-    return function(e){
-      // 阻止原本的 prompt handler 先跑
-      e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
-      showCancelReasonModal(function(v){
-        if (v===null) return;
-        try{ window.callCancel ? window.callCancel(v||'') : alert('找不到 callCancel'); }catch(err){ console.error(err); }
-      });
+
+    // Ctrl/Cmd+Enter 送出
+    if (ta) ta.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') btnOk.click();
+    }, { once:false });
+
+    // ESC 關閉
+    root.addEventListener('keydown', (e) => { if (e.key === 'Escape') { nuCloseModal(root); resolve(null); } }, { once:false });
+
+    // 送出
+    btnOk.onclick = () => {
+      const reason = (ta?.value || '').trim();
+      const shouldLock = !!(lock && lock.checked);
+      nuCloseModal(root);
+      resolve({ reason, lock: shouldLock });
+      setTimeout(()=>{ if(ta){ ta.value=''; } if(lock){ lock.checked=true; } }, 200);
     };
-  }
-  function attach(){
-    const d = document.getElementById('cancelBtnDesktop');
-    const m = document.getElementById('cancelBtnMobile');
-    if (d) d.addEventListener('click', captureHandlerFactory(d), true);
-    if (m) m.addEventListener('click', captureHandlerFactory(m), true);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
-  else attach();
-})();
+
+    nuOpenModal(root);
+    setTimeout(()=> ta && ta.focus(), 60);
+  });
+}
+
+function niceAlert(message='完成', title='完成'){
+  const root = document.getElementById('nu-alert');
+  if (!root) return alert(message);
+  root.querySelector('#alert-title').textContent = title;
+  root.querySelector('#alert-message').textContent = message;
+  root.querySelectorAll('[data-close="1"]').forEach(el=> el.onclick = () => nuCloseModal(root));
+  nuOpenModal(root);
+}
 
 
-/* ==== Beautify "已作廢" alert => Modal/Toast ==== */
+// ===== Override window.alert to use pretty modal when available =====
 (function(){
-  function __getBS(){ return (window.bootstrap || window.bootstrap5 || {}); }
-  function ensureShowCancelDoneUI(){
-    if (typeof window.showCancelDoneUI === 'function') return window.showCancelDoneUI;
-    window.showCancelDoneUI = function(whenText, reason){
-      try{
-        var info = document.getElementById('cancelDoneInfo');
-        if (info){
-          var parts=[]; if(whenText) parts.push('時間：'+whenText); if(reason) parts.push('原因：'+reason);
-          info.textContent = parts.length? parts.join('　') : '系統已更新標示與狀態。';
-        }
-        var Modal = __getBS().Modal;
-        var el = document.getElementById('cancelDoneModal');
-        if (Modal && el) new Modal(el).show();
-        var Toast = __getBS().Toast;
-        var t = document.getElementById('cancelToast');
-        if (Toast && t) new Toast(t,{delay:2500}).show();
-      }catch(e){}
-    };
-    return window.showCancelDoneUI;
-  }
-
-  // 記住最近一次取消原因，供 alert 攔截時使用
-  window.__LAST_CANCEL_REASON__ = window.__LAST_CANCEL_REASON__ || '';
-
-  // 攔截取消按鈕：記錄原因，呼叫原 callCancel
-  function bindCancelCapture(){
-    function ask(cb){
-      var modalEl = document.getElementById('cancelReasonModal');
-      var inputEl = document.getElementById('cancelReasonInput');
-      var submitEl = document.getElementById('cancelReasonSubmit');
-      var Modal = __getBS().Modal;
-      if (modalEl && inputEl && submitEl && Modal){
-        inputEl.value='';
-        var m = new Modal(modalEl, {backdrop:'static'});
-        function done(v){ try{ submitEl.removeEventListener('click', onOK); modalEl.removeEventListener('hidden.bs.modal', onHide);}catch(e){}; m.hide(); cb(v); }
-        function onOK(){ done((inputEl.value||'').trim()); }
-        function onHide(){ done(null); }
-        submitEl.addEventListener('click', onOK);
-        modalEl.addEventListener('hidden.bs.modal', onHide, {once:true});
-        m.show();
-      }else{
-        var v = (typeof prompt==='function') ? (prompt('請輸入取消/作廢原因（可留空）：')||'') : '';
-        cb(v);
-      }
-    }
-    function handler(e){
-      e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
-      ask(function(v){
-        if (v===null) return;
-        window.__LAST_CANCEL_REASON__ = v || '';
-        if (typeof window.callCancel === 'function') window.callCancel(v||'');
-      });
-    }
-    var d = document.getElementById('cancelBtnDesktop');
-    var m = document.getElementById('cancelBtnMobile');
-    if (d) d.addEventListener('click', handler, true);
-    if (m) m.addEventListener('click', handler, true);
-  }
-
-  // 攔截 window.alert：遇到「已作廢」改為 Modal
-  (function interceptAlert(){
-    var original = window.alert;
-    if (original && !original.__patched_for_cancel__) {
-      var fn = function(msg){
+  try {
+    if (typeof window !== 'undefined') {
+      window.__orig_alert = window.__orig_alert || window.alert;
+      window.alert = function(msg){
         try{
-          var s = String(msg||'');
-          if (s.indexOf('已作廢')>-1 || /cancelled/i.test(s)){
-            var show = ensureShowCancelDoneUI();
-            show(new Date().toLocaleString(), window.__LAST_CANCEL_REASON__||'');
+          if (document.getElementById('nu-alert')) {
+            niceAlert(String(msg), /錯誤|失敗/i.test(String(msg)) ? '提示' : '完成');
             return;
           }
         }catch(e){}
-        return original.apply(window, arguments);
+        return window.__orig_alert(String(msg));
       };
-      fn.__patched_for_cancel__ = true;
-      window.alert = fn;
     }
-  })();
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindCancelCapture);
-  else bindCancelCapture();
+  } catch(_) {}
 })();
