@@ -1,4 +1,4 @@
-/*! quote-receiver.js — Prefill for 自然大叔 線上報價單 (tailored) */
+/*! quote-receiver-tailored.js v1.0.1 — Prefill for 自然大叔 線上報價單 */
 (function(){
   'use strict';
 
@@ -10,7 +10,7 @@
 
   function isAllowed(origin){
     if (ALLOW_ORIGINS.includes(origin)) return true;
-    if (ALLOW_FILE_DEV && (origin === 'null' or origin.startsWith('file'))) return true;
+    if (ALLOW_FILE_DEV && (origin === 'null' || origin.startsWith('file'))) return true;
     return false;
   }
   function whenReady(cb){
