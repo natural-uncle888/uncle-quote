@@ -1083,6 +1083,106 @@ html, body { overflow-x: hidden; }
     </div>
   </div>
 </div>
-<script src="/quote-receiver-tailored.js" defer></script>
+<script>
+/*! quote-receiver-tailored.js v1.0.1 — Prefill for 自然大叔 線上報價單 */
+(function(){
+  'use strict';
+
+  // 改成你的訂單系統網域（可放多筆）；本機 file:// 測試先保留 ALLOW_FILE_DEV=true
+  const ALLOW_ORIGINS = ['https://88888888888.netlify.app'];
+  const ALLOW_FILE_DEV = true;
+
+  function isAllowed(origin){
+    if (ALLOW_ORIGINS.includes(origin)) return true;
+    if (ALLOW_FILE_DEV && (origin === 'null' || origin.startsWith('file'))) return true;
+    return false;
+  }
+  function whenReady(cb){
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', cb, {once:true});
+    } else cb();
+  }
+  function setValue(el, val){
+    if (!el) return;
+    el.value = (val ?? '');
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+    el.dispatchEvent(new Event('change', {bubbles:true}));
+  }
+  function setSelectByTextOrValue(selEl, value, text){
+    if (!selEl) return;
+    const opts = Array.from(selEl.options || []);
+    let hit = null;
+    if (value != null) hit = opts.find(o => String(o.value) === String(value));
+    if (!hit && text)  hit = opts.find(o => String(o.textContent).trim() === String(text).trim());
+    if (hit){
+      selEl.value = hit.value;
+      selEl.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+  }
+  function mapServiceForThisPage(service){
+    const code  = (service && service.code)  || '';
+    const label = (service && service.label) || '';
+    let serviceValue = ''; // 對應 <select class="service"> 的 value
+    let optionText   = ''; // 對應 <select class="option"> 文字
+
+    if (/分離|壁掛/.test(label)) { serviceValue='冷氣清洗'; optionText='分離式（壁掛式）'; }
+    else if (/吊隱|隱藏/.test(label)) { serviceValue='冷氣清洗'; optionText='吊隱式（隱藏式）'; }
+    else if (/洗衣|直立/.test(label)) { serviceValue='洗衣機清洗'; optionText='直立式'; }
+    else if (/水塔/.test(label)) { serviceValue='水塔清洗'; optionText=''; }
+
+    if (!serviceValue){
+      switch(String(code)){
+        case 'ac_split':   serviceValue='冷氣清洗'; optionText='分離式（壁掛式）'; break;
+        case 'ac_duct':    serviceValue='冷氣清洗'; optionText='吊隱式（隱藏式）'; break;
+        case 'washer_top': serviceValue='洗衣機清洗'; optionText='直立式'; break;
+        case 'water_tank': serviceValue='水塔清洗'; optionText=''; break;
+      }
+    }
+    if (!serviceValue && /冷氣/.test(label)) serviceValue='冷氣清洗';
+    if (!serviceValue && /洗衣/.test(label)) serviceValue='洗衣機清洗';
+    return { serviceValue, optionText };
+  }
+
+  function prefill(payload){
+    // 你的報價單欄位 id
+    const $name    = document.querySelector('#customerName');
+    const $phone   = document.querySelector('#customerPhone');
+    const $address = document.querySelector('#customerAddress');
+    const $date    = document.querySelector('#cleanDate');
+    const $time    = document.querySelector('#cleanTime');
+
+    setValue($name,    payload.name);
+    setValue($phone,   payload.phone);
+    setValue($address, payload.address);
+
+    if (payload.appointment){
+      if (payload.appointment.date) setValue($date, payload.appointment.date);
+      if (payload.appointment.time) setValue($time, payload.appointment.time);
+      try { if (typeof window.updateCleanFull === 'function') window.updateCleanFull(); } catch(_){}
+    }
+
+    // 第一列服務選項
+    const row = document.querySelector('#quoteTable tbody tr');
+    if (row && payload.service){
+      const sSel = row.querySelector('.service');
+      const oSel = row.querySelector('.option');
+      const mapped = mapServiceForThisPage(payload.service);
+      setSelectByTextOrValue(sSel, mapped.serviceValue, mapped.serviceValue);
+      if (mapped.optionText) setSelectByTextOrValue(oSel, null, mapped.optionText);
+      try { if (typeof window.updateTotals === 'function') window.updateTotals(); } catch(_){}
+    }
+  }
+
+  window.addEventListener('message', (ev)=>{
+    if (!isAllowed(ev.origin)) return;
+    const msg = ev.data || {};
+    if (msg.type !== 'PREFILL_QUOTE') return;
+    whenReady(()=> prefill(msg.payload || {}));
+    try { ev.source && ev.source.postMessage({type:'PREFILL_ACK'}, ev.origin); } catch(_){}
+  });
+
+  console.debug('[quote-receiver] ready');
+})();
+</script>
 </body>
 </html>
