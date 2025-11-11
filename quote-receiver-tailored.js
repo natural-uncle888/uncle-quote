@@ -4,7 +4,7 @@
 
   // ====== 安全白名單：請改成你的訂單系統網域 ======
   const ALLOW_ORIGINS = [
-    'https://88888888888.netlify.app'   // ← 改成你的網域；本機 file:// 可先用下方 DEV 選項
+    'https://unclequotation.netlify.app'   // ← 改成你的網域；本機 file:// 可先用下方 DEV 選項
   ];
   const ALLOW_FILE_DEV = true; // 允許本機 file:// 測試（origin 會是 "null"）
 
