@@ -2,7 +2,9 @@
 
 <html lang="zh-TW">
 <head>
-
+<script>
+  window.__QUOTE_ALLOW_ORIGINS__ = ['https://orders.example.com', 'https://staging.orders.example.com'];
+</script>
 <script>
   // Guard against extension-injected cross-origin CSS rules errors
   function isCrossOriginCssRulesError(msg) {
@@ -1083,8 +1085,5 @@ html, body { overflow-x: hidden; }
     </div>
   </div>
 </div>
-<script defer src="app.js"></script>
-<script defer src="quote-receiver-tailored.js"></script>
-
 </body>
 </html>
