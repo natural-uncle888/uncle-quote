@@ -1088,8 +1088,8 @@ html, body { overflow-x: hidden; }
 window.addEventListener("message", function (event) {
 
   const allowedOrigins = [
-    "https://88888888888.netlify.app", // 你的訂單系統網址
-    "http://localhost", 
+    "https://88888888888.netlify.app",  // 你的訂單系統網址
+    "http://localhost",
     "http://localhost:5173"
   ];
 
@@ -1103,10 +1103,10 @@ window.addEventListener("message", function (event) {
 
   const payload = data.payload || {};
 
-  // === 自動填入報價單欄位 ===
+  // === 自動填入欄位（修正成你真實的 ID） ===
   const nameInput = document.getElementById("customerName");
-  const phoneInput = document.getElementById("customerPhone");
-  const addressInput = document.getElementById("customerAddress");
+  const phoneInput = document.getElementById("phone");
+  const addressInput = document.getElementById("address");
 
   if (nameInput) nameInput.value = payload.name || "";
   if (phoneInput) phoneInput.value = payload.phone || "";
