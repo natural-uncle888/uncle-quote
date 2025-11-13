@@ -1121,5 +1121,39 @@ window.addEventListener("message", function (event) {
   console.log("✔ 已自動帶入報價單資料");
 });
 </script>
+
+<script>
+// ====== 接收訂單系統傳來的資料，並自動填入報價單 ======
+window.addEventListener("message", function (event) {
+
+  const allowedOrigins = [
+    "https://88888888888.netlify.app",
+    "http://localhost",
+    "http://localhost:5173"
+  ];
+
+  if (!allowedOrigins.includes(event.origin)) {
+    console.warn("⛔ 非允許來源：", event.origin);
+    return;
+  }
+
+  const data = event.data;
+  if (!data || data.type !== "PREFILL_QUOTE") return;
+
+  const payload = data.payload || {};
+  console.log("📬 收到資料：", payload);
+
+  const nameInput = document.getElementById("customer");
+  const phoneInput = document.getElementById("phone");
+  const addressInput = document.getElementById("address");
+
+  if (nameInput) nameInput.value = payload.name || "";
+  if (phoneInput) phoneInput.value = payload.phone || "";
+  if (addressInput) addressInput.value = payload.address || "";
+
+  console.log("✔ 已自動帶入報價單資料");
+});
+</script>
 </body>
+
 </html>
