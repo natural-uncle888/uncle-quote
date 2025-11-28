@@ -590,7 +590,7 @@ html, body { overflow-x: hidden; }
   <h2 id="basic-info-title" class="section-title mb-3">基本資料</h2>
 
   <div class="basic-group basic-group-customer" aria-labelledby="customer-title">
-    <h3 id="customer-title" class="section-title mb-2">顧客與服務資訊</h3>
+    <h3 id="customer-title">顧客與服務資訊</h3>
     <p class="small text-muted mb-2">包含聯絡方式、服務地址與預約時間，如需變更請事先與我們聯繫。</p>
 <div class="row g-2 mb-3">
 <div class="col-md-6 col-12">
@@ -1173,16 +1173,14 @@ html, body { overflow-x: hidden; }
 </div>
 
 <script>
-// 初始化報價摘要資訊（日期與編號）
+// 報價摘要：從目前頁面資料更新「編號 / 日期 / 狀態」
 (function(){
   function getHeaderDate(){
     var el = document.querySelector('.qi-date');
     if (el && el.textContent){
-      // 文字格式類似「報價日期：2025/01/01」
       var txt = el.textContent.replace(/^[^0-9]+/, '').trim();
       return txt || null;
     }
-    // 後備：用今天日期
     try{
       var d = new Date();
       var m = String(d.getMonth()+1).padStart(2,'0');
@@ -1192,7 +1190,7 @@ html, body { overflow-x: hidden; }
     return null;
   }
 
-  function getQuoteId(){
+  function getQuoteIdFromContext(){
     try{
       if (window.quote){
         if (window.quote.id) return String(window.quote.id);
@@ -1204,29 +1202,83 @@ html, body { overflow-x: hidden; }
     if (metaId && metaId.content) return metaId.content;
     try{
       var u = new URL(window.location.href);
-      return u.searchParams.get('id') || u.searchParams.get('qid') || u.searchParams.get('uuid') || '';
+      return u.searchParams.get('id') || u.searchParams.get('qid') || u.searchParams.get('uuid') || u.searchParams.get('quote_id') || '';
     }catch(e){}
     return '';
   }
 
-  function initSummary(){
+  function getStatusFromContext(){
+    function norm(v){
+      return (v == null ? '' : String(v)).trim().toLowerCase();
+    }
+    try{
+      if (typeof window.QUOTE_STATUS !== 'undefined' && window.QUOTE_STATUS){
+        return String(window.QUOTE_STATUS);
+      }
+    }catch(e){}
+    try{
+      if (window.quote && (window.quote.status || window.quote.state)){
+        return String(window.quote.status || window.quote.state);
+      }
+    }catch(e){}
+    var meta = document.querySelector('meta[name="quote:status"]');
+    if (meta && meta.content) return meta.content;
+    var body = document.body;
+    if (body){
+      var ds = body.dataset.quoteStatus || body.dataset.status;
+      if (ds) return ds;
+    }
+    var el = document.querySelector('[data-quote-status]');
+    if (el && el.dataset && el.dataset.quoteStatus) return el.dataset.quoteStatus;
+    return '';
+  }
+
+  function applyStatusBadge(statusRaw){
+    var el = document.getElementById('quoteStatus');
+    if (!el) return;
+    var s = (statusRaw == null ? '' : String(statusRaw)).trim();
+    var low = s.toLowerCase();
+    var label = s || '待確認';
+    var cls = 'badge ';
+    if (!low || low.indexOf('pending') >= 0 || low.indexOf('待確認') >= 0 || low.indexOf('待确认') >= 0){
+      cls += 'bg-warning text-dark';
+      label = label || '待確認';
+    } else if (low.indexOf('cancel') >= 0 || low.indexOf('作廢') >= 0 || low.indexOf('作废') >= 0){
+      cls += 'bg-danger';
+      if (!label) label = '已作廢';
+    } else {
+      cls += 'bg-success';
+      if (!label) label = '已確認';
+    }
+    el.className = cls;
+    el.textContent = label;
+    el.setAttribute('data-quote-status', label);
+  }
+
+  function updateSummary(){
     var dateText = getHeaderDate();
     var dateEl = document.getElementById('summaryQuoteDate');
     if (dateEl && dateText){
       dateEl.textContent = dateText;
     }
 
-    var idText = getQuoteId();
+    var idText = getQuoteIdFromContext();
     var idEl = document.getElementById('summaryQuoteId');
     if (idEl){
       idEl.textContent = idText || '尚未產生';
     }
+
+    var statusRaw = getStatusFromContext();
+    applyStatusBadge(statusRaw);
   }
 
+  // 暴露給 app.js 在載入唯讀資料後再次呼叫
+  window.__updateQuoteSummary = updateSummary;
+
   if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initSummary);
+    document.addEventListener('DOMContentLoaded', updateSummary);
   } else {
-    initSummary();
+    updateSummary();
   }
 })();
 </script>
