@@ -145,6 +145,35 @@ html, body { overflow-x: hidden; }
       100%{ box-shadow: 0 0 0 18px rgba(13,110,253,0); }
     }
     
+
+    /* Quote summary card */
+    .quote-summary-card{
+      background:#ffffff;
+      border-radius:12px;
+      padding:16px 18px;
+      margin:15px 0 20px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.04);
+      border:1px solid rgba(0,0,0,0.06);
+    }
+    .quote-summary-card .summary-item + .summary-item{
+      margin-top:4px;
+    }
+    .quote-summary-card .summary-label{
+      font-size:.85rem;
+      color:#6c757d;
+      margin-bottom:2px;
+    }
+    .quote-summary-card .summary-value{
+      font-size:1rem;
+      font-weight:600;
+    }
+    .quote-summary-card .summary-hint{
+      line-height:1.5;
+    }
+
+    .basic-group + .basic-group{
+      margin-top: 1.25rem;
+    }
 </style>
 <style>
   /* 已作廢視覺加強 */
@@ -523,10 +552,46 @@ html, body { overflow-x: hidden; }
 <div class="quote-info" id="quoteInfo"></div>
 <!-- 作廢橫幅 -->
 <div class="alert alert-danger d-none" id="cancelBanner" role="alert">⚠️ 本報價單已作廢</div>
+<!-- 報價摘要 -->
+<section id="quote-summary" class="quote-summary-card" aria-labelledby="quote-summary-title">
+  <h2 id="quote-summary-title" class="section-title mb-3">報價摘要</h2>
+  <div class="row g-2">
+    <div class="col-md-6 col-12">
+      <div class="summary-item">
+        <div class="summary-label">報價單編號</div>
+        <div class="summary-value" id="summaryQuoteId">尚未產生</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="summary-item">
+        <div class="summary-label">報價日期</div>
+        <div class="summary-value" id="summaryQuoteDate">--/--/--</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="summary-item">
+        <div class="summary-label">目前狀態</div>
+        <div class="summary-value">
+          <span id="quoteStatus" class="badge bg-warning text-dark" data-quote-status="待確認">待確認</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row g-2 mt-2">
+    <div class="col-12">
+      <p class="summary-hint small text-muted mb-0">
+        以下區塊中可以查看與編輯詳細的客戶資料、服務項目與金額。確認無誤後，再點選下方「我同意此報價」。
+      </p>
+    </div>
+  </div>
+</section>
 <!-- 客戶資訊 -->
 <section id="basic-info" aria-labelledby="basic-info-title">
   <h2 id="basic-info-title" class="section-title mb-3">基本資料</h2>
-<h3 id="customer-title">客戶資訊</h3>
+
+  <div class="basic-group basic-group-customer" aria-labelledby="customer-title">
+    <h3 id="customer-title" class="section-title mb-2">顧客與服務資訊</h3>
+    <p class="small text-muted mb-2">包含聯絡方式、服務地址與預約時間，如需變更請事先與我們聯繫。</p>
 <div class="row g-2 mb-3">
 <div class="col-md-6 col-12">
 <label>姓名</label>
@@ -543,8 +608,22 @@ html, body { overflow-x: hidden; }
 <input class="form-control" id="customerAddress" placeholder="服務地址" type="text"/>
 </div>
 </div>
-<!-- 技師資訊 -->
-<h3 id="tech-title" class="section-title">技師人員資訊</h3>
+
+    <div class="mt-3">
+      <h4 id="schedule-title" class="section-title h5 mb-2">預約清洗時間</h4>
+<div class="p-3" id="cleanFullBox">
+    🕒 完整預約時間：<span id="cleanFull">尚未選擇</span>
+<div class="row g-2 mt-2">
+<div class="col-6"><input class="form-control" id="cleanDate" type="date"/></div>
+<div class="col-6"><input class="form-control" id="cleanTime" type="time"/></div>
+</div>
+</div>
+    </div>
+  </div>
+
+  <div class="basic-group basic-group-tech mt-4" aria-labelledby="tech-title">
+    <h3 id="tech-title" class="section-title mb-2">施工人員資訊</h3>
+    <p class="small text-muted mb-2">此區提供將到府服務的技師資訊，如有異動可於排程時協調調整。</p>
 <div class="row g-2 mb-3">
 <div class="col-md-6 col-12">
 <label>技師姓名</label>
@@ -555,21 +634,16 @@ html, body { overflow-x: hidden; }
 <input class="form-control" id="technicianPhone" type="text" value="0912-356331"/>
 </div>
 </div>
-<!-- 預約時間 -->
-<h3 id="schedule-title" class="section-title">預約清洗時間</h3>
-<div class="p-3" id="cleanFullBox">
-    🕒 完整預約時間：<span id="cleanFull">尚未選擇</span>
-<div class="row g-2 mt-2">
-<div class="col-6"><input class="form-control" id="cleanDate" type="date"/></div>
-<div class="col-6"><input class="form-control" id="cleanTime" type="time"/></div>
-</div>
-</div>
-<!-- 服務項目 -->
 
+  </div>
+
+  <!-- 服務項目 -->
 </section>
+
 <section id="quote-content" aria-labelledby="quote-content-title">
   <h2 id="quote-content-title" class="section-title mb-3">報價內容</h2>
 <h3 id="services-title">服務項目</h3>
+<p class="small text-muted mb-2">以下為本次預計施作項目與費用，如有任何疑問，請在同意前與我們聯繫確認。</p>
 <div class="table-responsive">
 <table class="table table-bordered bg-white" id="quoteTable">
 <thead class="table-light">
@@ -630,6 +704,7 @@ html, body { overflow-x: hidden; }
 <button class="btn btn-primary mb-2" id="addRow">➕ 新增項目</button>
 <!-- 其他事項 -->
 <h3 id="other-notes-title" class="section-title">價格說明與其他事項</h3>
+<p class="small text-muted mb-2">可簡要說明價格計算方式、現場可能追加項目，以及發票與稅金相關注意事項。</p>
 <textarea class="form-control" id="otherNotes" rows="3">最終費用將依現場實際狀況進行調整，如有額外項目，將事前與您說明與報價。</textarea>
 <!-- 合計 -->
 <div id="totalContainer"></div><div class="form-check mt-2">
@@ -1096,5 +1171,64 @@ html, body { overflow-x: hidden; }
     </div>
   </div>
 </div>
+
+<script>
+// 初始化報價摘要資訊（日期與編號）
+(function(){
+  function getHeaderDate(){
+    var el = document.querySelector('.qi-date');
+    if (el && el.textContent){
+      // 文字格式類似「報價日期：2025/01/01」
+      var txt = el.textContent.replace(/^[^0-9]+/, '').trim();
+      return txt || null;
+    }
+    // 後備：用今天日期
+    try{
+      var d = new Date();
+      var m = String(d.getMonth()+1).padStart(2,'0');
+      var day = String(d.getDate()).padStart(2,'0');
+      return d.getFullYear() + '/' + m + '/' + day;
+    }catch(e){}
+    return null;
+  }
+
+  function getQuoteId(){
+    try{
+      if (window.quote){
+        if (window.quote.id) return String(window.quote.id);
+        if (window.quote.qid) return String(window.quote.qid);
+        if (window.quote.uuid) return String(window.quote.uuid);
+      }
+    }catch(e){}
+    var metaId = document.querySelector('meta[name="quote:id"]');
+    if (metaId && metaId.content) return metaId.content;
+    try{
+      var u = new URL(window.location.href);
+      return u.searchParams.get('id') || u.searchParams.get('qid') || u.searchParams.get('uuid') || '';
+    }catch(e){}
+    return '';
+  }
+
+  function initSummary(){
+    var dateText = getHeaderDate();
+    var dateEl = document.getElementById('summaryQuoteDate');
+    if (dateEl && dateText){
+      dateEl.textContent = dateText;
+    }
+
+    var idText = getQuoteId();
+    var idEl = document.getElementById('summaryQuoteId');
+    if (idEl){
+      idEl.textContent = idText || '尚未產生';
+    }
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initSummary);
+  } else {
+    initSummary();
+  }
+})();
+</script>
 </body>
 </html>
