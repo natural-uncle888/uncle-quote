@@ -81,7 +81,6 @@ window.__QUOTE_CANCELLED__ = false;
   const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
   el.innerHTML = `<span class="qi-proj">承辦項目：家電清洗服務</span><span class="qi-sep"> ｜ </span><span class="qi-date">報價日期：${dateStr}</span>`;
 })();
-try{ if (typeof window.__updateQuoteSummary === 'function') window.__updateQuoteSummary(); }catch(_){}
 
 /* =====================
    預約時間合成
@@ -632,7 +631,6 @@ document.addEventListener('DOMContentLoaded', function(){
     setMobileBottomBar(!(isCancelled || isLocked));
   }catch(_){ /* ignore */ }
 applyReadOnlyData(data); 
-      if (typeof window.__updateQuoteSummary === 'function') window.__updateQuoteSummary();
       if (data && data.promo && typeof window.__applyPromoFromData==='function') { window.__applyPromoFromData(data.promo); }
       applyMobileLabels();
       setReadonlyButtonsVisibility(!locked);
