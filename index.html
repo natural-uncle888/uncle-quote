@@ -514,16 +514,19 @@ html, body { overflow-x: hidden; }
 }</style>
 </head>
 <body>
-<div class="d-none" id="cancelBanner">⚠️ 本報價單已作廢</div>
+<header class="quote-header"><h1 class="visually-hidden">自然大叔 線上報價單</h1></header>
+
 <div class="container-quote">
 <div class="text-center">
 <img alt="自然大叔 Logo" class="logo" src="https://res.cloudinary.com/dijzndzw2/image/upload/v1756944900/2_oufdld.png"/>
 </div>
 <div class="quote-info" id="quoteInfo"></div>
 <!-- 作廢橫幅 -->
-<div class="alert alert-danger d-none" id="cancelBanner" role="alert"></div>
+<div class="alert alert-danger d-none" id="cancelBanner" role="alert">⚠️ 本報價單已作廢</div>
 <!-- 客戶資訊 -->
-<h5 class="section-title">客戶資訊</h5>
+<section id="basic-info" aria-labelledby="basic-info-title">
+  <h2 id="basic-info-title" class="section-title mb-3">基本資料</h2>
+<h3 id="customer-title">客戶資訊</h3>
 <div class="row g-2 mb-3">
 <div class="col-md-6 col-12">
 <label>姓名</label>
@@ -541,7 +544,7 @@ html, body { overflow-x: hidden; }
 </div>
 </div>
 <!-- 技師資訊 -->
-<h5 class="section-title">技師人員資訊</h5>
+<h3 id="tech-title" class="section-title">技師人員資訊</h3>
 <div class="row g-2 mb-3">
 <div class="col-md-6 col-12">
 <label>技師姓名</label>
@@ -553,7 +556,7 @@ html, body { overflow-x: hidden; }
 </div>
 </div>
 <!-- 預約時間 -->
-<h5 class="section-title">預約清洗時間</h5>
+<h3 id="schedule-title" class="section-title">預約清洗時間</h3>
 <div class="p-3" id="cleanFullBox">
     🕒 完整預約時間：<span id="cleanFull">尚未選擇</span>
 <div class="row g-2 mt-2">
@@ -562,7 +565,11 @@ html, body { overflow-x: hidden; }
 </div>
 </div>
 <!-- 服務項目 -->
-<h5 class="section-title">服務項目</h5>
+
+</section>
+<section id="quote-content" aria-labelledby="quote-content-title">
+  <h2 id="quote-content-title" class="section-title mb-3">報價內容</h2>
+<h3 id="services-title">服務項目</h3>
 <div class="table-responsive">
 <table class="table table-bordered bg-white" id="quoteTable">
 <thead class="table-light">
@@ -622,7 +629,7 @@ html, body { overflow-x: hidden; }
 </div>
 <button class="btn btn-primary mb-2" id="addRow">➕ 新增項目</button>
 <!-- 其他事項 -->
-<h5 class="section-title">其他事項</h5>
+<h3 id="other-notes-title" class="section-title">價格說明與其他事項</h3>
 <textarea class="form-control" id="otherNotes" rows="3">最終費用將依現場實際狀況進行調整，如有額外項目，將事前與您說明與報價。</textarea>
 <!-- 合計 -->
 <div id="totalContainer"></div><div class="form-check mt-2">
@@ -738,7 +745,11 @@ html, body { overflow-x: hidden; }
 </div>
 </section>
 <!-- 備註與保固條款 -->
-<h5 class="section-title">備註與保固條款</h5>
+
+</section>
+<section id="terms-contact" aria-labelledby="terms-contact-title">
+  <h2 id="terms-contact-title" class="section-title mb-3">條款與聯絡方式</h2>
+<h3 id="terms-title">備註與保固條款</h3>
 <ol>
 <li>請於確認本報價內容無誤後，以按下「我同意此報價」按鈕回覆，以利後續安排作業。</li>
 <li>施作過程歡迎您全程在場參與，確保施工過程透明、保障雙方權益。</li>
@@ -748,7 +759,7 @@ html, body { overflow-x: hidden; }
 <li>若您有任何疑問或需進一步協助，歡迎直接加入 LINE 官方帳號，我們將誠摯為您服務。</li>
 </ol>
 <!-- 聯絡資訊 -->
-<h5 class="section-title">聯絡資訊</h5>
+<h3 id="contact-title" class="section-title">聯絡資訊</h3>
 <div class="row align-items-start">
 <div class="col-md-6 col-12 mb-2">
 <p><b>自然大叔 / 林宥騰</b><br/>
@@ -997,6 +1008,8 @@ html, body { overflow-x: hidden; }
   </div>
 </div>
 
+
+</section>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Ensure cancel reason textarea is always editable (scoped fix) -->
