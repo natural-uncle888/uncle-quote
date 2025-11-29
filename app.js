@@ -1088,15 +1088,15 @@ document.addEventListener('DOMContentLoaded', function(){
   // 狀態與預設
   const state = { nameType:'none', presetKey:'none', customName:'', rules:[] };
   const PRESETS = {
-    "new-year": { name: "新年換新優惠", desc: '滿 8,000 折 500，滿 12,000 再享 95 折。', rules: [
+    "new-year": { name: "新年換新優惠", rules: [
       {type:"threshold-flat", threshold:8000, amount:500, stack:true, cap:null},
       {type:"threshold-rate", threshold:12000, amount:5, stack:false, cap:null}
     ]},
-    "anniv-5": { name: "五周年優惠活動", desc: '每單折 200，滿 10,000 再享 9 折，上限折抵 2,000 元。', rules: [
+    "anniv-5": { name: "五周年優惠活動", rules: [
       {type:"flat", amount:200, threshold:0, stack:true, cap:null},
       {type:"threshold-rate", threshold:10000, amount:10, stack:false, cap:2000}
     ]},
-    "year-end": { name: "年底大掃除活動", desc: '滿 6,000 折 300；滿 12,000 再折 700。', rules: [
+    "year-end": { name: "年底大掃除活動", rules: [
       {type:"threshold-flat", threshold:6000, amount:300, stack:true, cap:null},
       {type:"threshold-flat", threshold:12000, amount:700, stack:true, cap:null}
     ]}
@@ -1106,39 +1106,9 @@ document.addEventListener('DOMContentLoaded', function(){
   const currentName = ()=> state.nameType==='preset' ? (PRESETS[state.presetKey]?.name || '活動優惠') : (state.nameType==='custom' ? (state.customName||'活動優惠') : '活動優惠');
 
   function renderSummary(discount){
-    const sum = $('#promoSummary');
-    const tot = $('#promoTotal');
-    const descEl = $('#promoDesc');
-    const n = currentName();
-    const d = toInt(discount || 0);
-
-    // 標題右側摘要
-    if (sum){
-      if (state.nameType === 'none' || d === 0){
-        sum.textContent = '目前未使用優惠';
-      } else {
-        sum.textContent = n + ' - 折扣 $' + d;
-      }
-    }
-
-    // 卡片底部小計
-    if (tot){
-      tot.textContent = d > 0 ? '- $' + d : '- $0';
-    }
-
-    // 說明文字
-    if (descEl){
-      if (state.nameType === 'preset' && PRESETS[state.presetKey]){
-        const info = PRESETS[state.presetKey];
-        let text = '本報價已套用「' + (info.name || n) + '」。';
-        if (info.desc) text += ' ' + info.desc;
-        descEl.textContent = text;
-      } else if (state.nameType === 'custom' && state.customName){
-        descEl.textContent = '本報價已套用自訂優惠：「' + state.customName + '」。';
-      } else {
-        descEl.textContent = '目前未使用任何活動優惠，亦不影響上方報價計算。';
-      }
-    }
+    const sum=$('#promoSummary'), tot=$('#promoTotal'), n=currentName();
+    if (sum) sum.textContent = n + ' - $' + toInt(discount||0);
+    if (tot) tot.textContent = '- $' + toInt(discount||0);
   }
 
   function getSubtotal(){
