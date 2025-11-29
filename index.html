@@ -133,8 +133,37 @@ html, body { overflow-x: hidden; }
       box-shadow: 0 2px 8px rgba(255,173,77,.15);
     }
     .total-banner #total{ font-size:1.4rem; }
-  
-    /* --- Payment highlight styles --- */
+
+
+    /* 報價摘要卡 & 服務項目 legend */
+    .summary-card{
+      border-radius: 16px;
+      box-shadow: 0 4px 14px rgba(15,23,42,.08);
+      background:#ffffff;
+      border: 1px solid #dde5f0;
+    }
+    .summary-card .fs-4{
+      letter-spacing: .03em;
+    }
+    .quote-summary .badge{
+      font-size:.75rem;
+      padding:.25rem .6rem;
+    }
+    .quote-legend .badge{
+      font-weight:500;
+      padding:.25rem .6rem;
+      margin-right:.25rem;
+    }
+    @media (max-width: 576px){
+      .summary-card .card-body{
+        align-items:stretch;
+      }
+      .quote-summary .text-md-end{
+        text-align:left !important;
+      }
+    }
+
+      /* --- Payment highlight styles --- */
     .payment-highlight{
       background: linear-gradient(135deg, rgba(13,110,253,.08), rgba(25,135,84,.08));
       border: 1px dashed rgba(0,0,0,.12);
@@ -523,56 +552,119 @@ html, body { overflow-x: hidden; }
 <div class="quote-info" id="quoteInfo"></div>
 <!-- 作廢橫幅 -->
 <div class="alert alert-danger d-none" id="cancelBanner" role="alert">⚠️ 本報價單已作廢</div>
+
+<!-- 報價摘要卡 -->
+<section class="quote-summary" aria-labelledby="quote-summary-title">
+  <h2 id="quote-summary-title" class="visually-hidden">報價摘要</h2>
+  <div class="card summary-card mb-3">
+    <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
+      <!-- 左側：金額 -->
+      <div>
+        <div class="text-muted small mb-1">本次清洗服務合計</div>
+        <div class="fs-4 fw-bold">
+          NT$ <span id="summaryTotal">0</span>
+          <span id="summaryTaxTag" class="badge bg-secondary ms-2 d-none">含 5% 營業稅</span>
+        </div>
+      </div>
+      <!-- 右側：時間 / 地址 / 狀態 -->
+      <div class="text-md-end small w-100 w-md-auto">
+        <div class="mb-1">
+          <span class="text-muted d-block">預約時間</span>
+          <span id="summaryDate">尚未排定，將由我們與您聯繫。</span>
+        </div>
+        <div class="mb-1">
+          <span class="text-muted d-block">服務地址</span>
+          <span id="summaryArea">尚未填寫</span>
+        </div>
+        <div>
+          <span class="text-muted d-block">狀態</span>
+          <span id="summaryStatus" class="badge bg-warning text-dark">待顧客確認</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- 客戶資訊 -->
 <section id="basic-info" aria-labelledby="basic-info-title">
   <h2 id="basic-info-title" class="section-title mb-3">基本資料</h2>
-<h3 id="customer-title">顧客與服務資訊</h3>
-<p class="small text-muted mb-2">包含聯絡方式、服務地址與預約時間，如需變更請事先與我們聯繫。</p>
-<div class="row g-2 mb-3">
-<div class="col-md-6 col-12">
-<label>姓名</label>
-<input class="form-control" id="customerName" placeholder="客戶姓名" type="text"/>
-</div>
-<div class="col-md-6 col-12">
-<label>電話</label>
-<input class="form-control" id="customerPhone" type="text"/>
-</div>
-</div>
-<div class="row g-2 mb-3">
-<div class="col-12">
-<label>地址</label>
-<input class="form-control" id="customerAddress" placeholder="服務地址" type="text"/>
-</div>
-</div>
-<!-- 技師資訊 -->
-<h3 id="tech-title" class="section-title">技師人員資訊</h3>
-<p class="small text-muted mb-2">此區提供將到府服務的技師資訊，如有異動可於排程時協調調整。</p>
-<div class="row g-2 mb-3">
-<div class="col-md-6 col-12">
-<label>技師姓名</label>
-<input class="form-control" id="technicianName" type="text" value="林宥騰"/>
-</div>
-<div class="col-md-6 col-12">
-<label>技師聯絡電話</label>
-<input class="form-control" id="technicianPhone" type="text" value="0912-356331"/>
-</div>
-</div>
-<!-- 預約時間 -->
-<h3 id="schedule-title" class="section-title">預約清洗時間</h3>
-<div class="p-3" id="cleanFullBox">
-    🕒 完整預約時間：<span id="cleanFull">尚未選擇</span>
-<div class="row g-2 mt-2">
-<div class="col-6"><input class="form-control" id="cleanDate" type="date"/></div>
-<div class="col-6"><input class="form-control" id="cleanTime" type="time"/></div>
-</div>
-</div>
-<!-- 服務項目 -->
 
+  <!-- 顧客資訊 -->
+  <div class="mb-4">
+    <h3 id="customer-title" class="h5 mb-2">顧客資訊</h3>
+    <p class="small text-muted mb-2">
+      請您確認以下聯絡方式與服務地址是否正確，如需變更請事先與我們聯繫。
+    </p>
+
+    <div class="row g-2 mb-3">
+      <div class="col-md-6 col-12">
+        <label class="form-label">姓名</label>
+        <input class="form-control" id="customerName" placeholder="客戶姓名" type="text"/>
+      </div>
+      <div class="col-md-6 col-12">
+        <label class="form-label">電話</label>
+        <input class="form-control" id="customerPhone" type="text"/>
+      </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+      <div class="col-12">
+        <label class="form-label">服務地址</label>
+        <input class="form-control" id="customerAddress" placeholder="服務地址" type="text"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- 服務執行資訊 -->
+  <div class="mb-4">
+    <h3 id="service-info-title" class="h5 mb-2">服務執行資訊</h3>
+    <p class="small text-muted mb-2">
+      以下為將到府服務的技師與預約時間，如有異動可於排程前與我們協調調整。
+    </p>
+
+    <div class="row g-2 mb-3">
+      <div class="col-md-6 col-12">
+        <label class="form-label">技師姓名</label>
+        <input class="form-control" id="technicianName" type="text" value="林宥騰"/>
+      </div>
+      <div class="col-md-6 col-12">
+        <label class="form-label">技師聯絡電話</label>
+        <input class="form-control" id="technicianPhone" type="text" value="0912-356331"/>
+      </div>
+    </div>
+
+    <div class="p-3 border rounded-3 bg-light" id="cleanFullBox">
+      <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
+        <div>
+          <div id="schedule-title" class="fw-semibold mb-1">預約清洗時間</div>
+          <div class="small text-muted">
+            🕒 完整預約時間：<span id="cleanFull">尚未選擇</span>
+          </div>
+        </div>
+        <div class="row g-2 mt-2 mt-sm-0">
+          <div class="col-6">
+            <input class="form-control" id="cleanDate" type="date"/>
+          </div>
+          <div class="col-6">
+            <input class="form-control" id="cleanTime" type="time"/>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
+
 <section id="quote-content" aria-labelledby="quote-content-title">
   <h2 id="quote-content-title" class="section-title mb-3">報價內容</h2>
 <h3 id="services-title">服務項目</h3>
 <p class="small text-muted mb-2">以下為本次預計施作項目與費用，如有任何疑問，請在同意前與我們聯繫確認。</p>
+<div class="quote-legend small text-muted mb-2">
+  <span class="badge rounded-pill bg-light text-dark border me-1">空調清洗</span>
+  <span class="badge rounded-pill bg-light text-dark border me-1">家電清洗</span>
+  <span class="badge rounded-pill bg-light text-dark border me-1">加值服務</span>
+  <span class="badge rounded-pill bg-light text-dark border">加價項目</span>
+</div>
+
 <div class="table-responsive">
 <table class="table table-bordered bg-white" id="quoteTable">
 <thead class="table-light">
@@ -589,35 +681,51 @@ html, body { overflow-x: hidden; }
 <tr>
 <td>
 <select class="form-select service">
-<option value="">請選擇</option>
-<option value="冷氣清洗">冷氣清洗</option>
-<option value="洗衣機清洗">洗衣機清洗</option>
-<option value="防霉處理">防霉處理</option>
-<option value="臭氧殺菌">臭氧殺菌</option>
-<option value="變形金剛機型">變形金剛機型</option>
-<option value="一體式水盤機型">一體式水盤機型</option>
-<option value="超長費用">超長費用</option>
-<option value="自來水管清洗">自來水管清洗</option>
-<option value="水塔清洗">水塔清洗</option>
+  <option value="">請選擇服務項目</option>
+  <optgroup label="空調清洗">
+    <option value="冷氣清洗">冷氣清洗</option>
+  </optgroup>
+  <optgroup label="家電清洗">
+    <option value="洗衣機清洗">洗衣機清洗</option>
+  </optgroup>
+  <optgroup label="加值服務">
+    <option value="防霉處理">防霉處理</option>
+    <option value="臭氧殺菌">臭氧殺菌</option>
+  </optgroup>
+  <optgroup label="加價項目">
+    <option value="變形金剛機型">變形金剛機型</option>
+    <option value="一體式水盤機型">一體式水盤機型</option>
+    <option value="超長費用">超長費用</option>
+    <option value="自來水管清洗">自來水管清洗</option>
+    <option value="水塔清洗">水塔清洗</option>
+  </optgroup>
 </select>
+
 </td>
 <td>
 <select class="form-select option">
-<option value="">請選擇</option>
-<option>分離式（壁掛式）</option>
-<option>吊隱式（隱藏式）</option>
-<option>直立式</option>
-<option>家用</option>
-<option>特殊機型額外加收費</option>
-<option>冷氣防霉處理（抑菌噴劑）</option>
-<option>高臭氧殺菌30分鐘</option>
-<option>加購價</option>
-<option>無廚一衛</option>
-<option>一廚一衛</option>
-<option>一廚兩衛</option>
-<option>一廚三衛</option>
-<option>一廚四衛</option>
+  <option value="">請選擇規格 / 坪數</option>
+  <optgroup label="機型 / 規格">
+    <option>分離式（壁掛式）</option>
+    <option>吊隱式（隱藏式）</option>
+    <option>直立式</option>
+    <option>家用</option>
+  </optgroup>
+  <optgroup label="優惠 / 加值">
+    <option>特殊機型額外加收費</option>
+    <option>冷氣防霉處理（抑菌噴劑）</option>
+    <option>高臭氧殺菌30分鐘</option>
+    <option>加購價</option>
+  </optgroup>
+  <optgroup label="坪數 / 衛浴數">
+    <option>無廚一衛</option>
+    <option>一廚一衛</option>
+    <option>一廚兩衛</option>
+    <option>一廚三衛</option>
+    <option>一廚四衛</option>
+  </optgroup>
 </select>
+
 </td>
 <td><input class="form-control qty" min="1" type="number" value="1"/></td>
 <td>
