@@ -88,44 +88,89 @@ window.__QUOTE_CANCELLED__ = false;
 function updateCleanFull(){
   const dv = qs("#cleanDate")?.value;
   const tv = qs("#cleanTime")?.value;
-  const fullSpan = qs("#cleanFull");
-
-  if (!dv || !tv) {
-    if (fullSpan) fullSpan.textContent = "尚未選擇";
-    if (typeof updateSummaryCard === "function") {
-      try { updateSummaryCard(); } catch(_) {}
-    }
-    return;
-  }
-
+  if(!dv || !tv) return;
   const dt = new Date(`${dv}T${tv}`);
-  if (isNaN(dt.getTime())) {
-    if (fullSpan) fullSpan.textContent = "尚未選擇";
-    if (typeof updateSummaryCard === "function") {
-      try { updateSummaryCard(); } catch(_) {}
-    }
-    return;
-  }
-
-  const wdList = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
-  const wd = wdList[dt.getDay()];
-  const yyyy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2,"0");
-  const dd = String(dt.getDate()).padStart(2,"0");
-  const hh = String(dt.getHours()).padStart(2,"0");
-  const mi = String(dt.getMinutes()).padStart(2,"0");
+  const wd = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][dt.getDay()];
+  const yyyy = dt.getFullYear(); const mm = String(dt.getMonth()+1).padStart(2,'0'); const dd = String(dt.getDate()).padStart(2,'0');
+  const hh = String(dt.getHours()).padStart(2,'0'); const mi = String(dt.getMinutes()).padStart(2,'0');
   const ampm = dt.getHours() < 12 ? "上午" : "下午";
-
-  if (fullSpan) {
-    fullSpan.innerHTML = `<span class="cf-date">${yyyy}/${mm}/${dd}（${wd}）</span><span class="cf-time">${ampm} ${hh}:${mi} 開始</span>`;
-  }
-
-  if (typeof updateSummaryCard === "function") {
-    try { updateSummaryCard(); } catch(_) {}
-  }
+  qs("#cleanFull").innerHTML = `<span class="cf-date">${yyyy}/${mm}/${dd}（${wd}）</span><span class="cf-time">${ampm} ${hh}:${mi} 開始</span>`;
+  try{ updateSummaryCard(); }catch(_){}
 }
 qs("#cleanDate")?.addEventListener("change", updateCleanFull);
 qs("#cleanTime")?.addEventListener("change", updateCleanFull);
+
+/* =====================
+   報價摘要卡同步
+===================== */
+function updateSummaryCard(){
+  const totalSpan   = document.querySelector('#summaryTotal');
+  const taxTag      = document.querySelector('#summaryTaxTag');
+  const statusSpan  = document.querySelector('#summaryStatus');
+  const dateSpan    = document.querySelector('#summaryDate');
+  const areaSpan    = document.querySelector('#summaryArea');
+
+  // 1. 金額：優先取含稅，否則未稅
+  let rawText = '';
+  const withTax = document.querySelector('#totalWithTax');
+  const noTax   = document.querySelector('#total');
+  if (withTax) rawText = withTax.textContent.trim();
+  else if (noTax) rawText = noTax.textContent.trim();
+
+  if (totalSpan && rawText){
+    const num = parseInt(rawText.replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(num)){
+      try{
+        totalSpan.textContent = num.toLocaleString('zh-TW');
+      }catch(_){
+        totalSpan.textContent = String(num);
+      }
+    }
+  }
+
+  // 2. 稅別 tag：勾選含稅才顯示
+  const showTax = document.querySelector('#toggleTax')?.checked === true;
+  if (taxTag){
+    taxTag.classList.toggle('d-none', !showTax);
+  }
+
+  // 3. 預約時間：直接拿 #cleanFull 的文字
+  if (dateSpan){
+    const src = document.querySelector('#cleanFull');
+    const txt = (src?.innerText || src?.textContent || '').trim();
+    dateSpan.textContent = txt || '尚未排定，將由我們與您聯繫。';
+  }
+
+  // 4. 服務地址：拿 #customerAddress 的值
+  if (areaSpan){
+    const addr = document.querySelector('#customerAddress');
+    const val = (addr?.value || addr?.textContent || '').trim();
+    areaSpan.textContent = val || '地址尚未填寫';
+  }
+
+  // 5. 狀態：用全域狀態 / 作廢旗標推論
+  let key = '';
+  if (typeof window.QUOTE_STATUS === 'string'){
+    key = window.QUOTE_STATUS.toLowerCase();
+  } else if (window.__QUOTE_CANCELLED__){
+    key = 'cancelled';
+  }
+
+  let label = '待顧客確認';
+  let cls   = 'badge bg-warning text-dark';
+  if (key === 'confirmed'){
+    label = '已確認';
+    cls   = 'badge bg-success';
+  } else if (key === 'cancelled'){
+    label = '已作廢';
+    cls   = 'badge bg-secondary';
+  }
+
+  if (statusSpan){
+    statusSpan.textContent = label;
+    statusSpan.className = cls;
+  }
+}
 
 /* =====================
    自動帶價 + 合計
@@ -205,81 +250,9 @@ function updateTotals(){
   // 手機底部合計：若開啟含稅，就顯示含稅；否則顯示未稅
   setText(qs("#totalMobile"), showTax ? totalWithTax : total);
 
-  if (typeof updateSummaryCard === "function") {
-    try { updateSummaryCard(); } catch(_) {}
-  }
+  // 同步更新摘要卡
+  try{ updateSummaryCard(); }catch(_){}
 }
-
-function updateSummaryCard(){
-  const totalSpan = document.querySelector("#summaryTotal");
-  if (!totalSpan) return;
-
-  const taxTag     = document.querySelector("#summaryTaxTag");
-  const statusSpan = document.querySelector("#summaryStatus");
-  const dateSpan   = document.querySelector("#summaryDate");
-  const areaSpan   = document.querySelector("#summaryArea");
-
-  // 金額：優先使用含稅 totalWithTax，其次 total
-  let totalText = "";
-  const withTaxEl = document.querySelector("#totalWithTax");
-  const noTaxEl   = document.querySelector("#total");
-  if (withTaxEl) totalText = withTaxEl.textContent.trim();
-  else if (noTaxEl) totalText = noTaxEl.textContent.trim();
-
-  if (totalText){
-    const num = parseInt(totalText.replace(/[^\d]/g, ""), 10);
-    if (!isNaN(num)) totalSpan.textContent = num.toLocaleString("zh-TW");
-  } else {
-    totalSpan.textContent = "0";
-  }
-
-  // 是否顯示「含稅」標籤
-  const toggle = document.querySelector("#toggleTax");
-  const showTax = toggle && toggle.checked === true;
-  if (taxTag) {
-    taxTag.classList.toggle("d-none", !showTax);
-  }
-
-  // 預約時間：使用 #cleanFull 文字
-  if (dateSpan){
-    const full = document.querySelector("#cleanFull");
-    const txt = (full && (full.innerText || full.textContent) || "").trim();
-    dateSpan.textContent = txt || "尚未排定，將由我們與您聯繫。";
-  }
-
-  // 服務地址
-  if (areaSpan){
-    const addr = document.querySelector("#customerAddress");
-    const val = (addr && (addr.value || addr.textContent) || "").trim();
-    areaSpan.textContent = val || "地址尚未填寫";
-  }
-
-  // 狀態：優先 getExplicitStatus，其次 __QUOTE_CANCELLED__
-  let key = "";
-  try{
-    if (typeof getExplicitStatus === "function") {
-      key = getExplicitStatus() || "";
-    }
-  }catch(_){}
-  if (!key && window.__QUOTE_CANCELLED__) key = "cancelled";
-  key = (key || "").toLowerCase();
-
-  let label = "待顧客確認";
-  let cls   = "badge bg-warning text-dark";
-  if (key === "confirmed"){
-    label = "已確認";
-    cls   = "badge bg-success";
-  } else if (key === "cancelled"){
-    label = "已作廢";
-    cls   = "badge bg-secondary";
-  }
-
-  if (statusSpan){
-    statusSpan.textContent = label;
-    statusSpan.className = cls;
-  }
-}
-
 
 function applyMobileLabels(){
   const labels = Array.from(qsa('#quoteTable thead th')).map(th => th.textContent.trim());
@@ -304,53 +277,54 @@ qs("#addRow")?.addEventListener("click", ()=>{
   const tbody = qs("#quoteTable tbody");
   const tr = document.createElement("tr");
   tr.innerHTML = `
-    <td>
+        <td>
       <select class="form-select service">
-  <option value="">請選擇服務項目</option>
-  <optgroup label="空調清洗">
-    <option value="冷氣清洗">冷氣清洗</option>
-  </optgroup>
-  <optgroup label="家電清洗">
-    <option value="洗衣機清洗">洗衣機清洗</option>
-  </optgroup>
-  <optgroup label="其他清洗">
-    <option value="自來水管清洗">自來水管清洗</option>
-    <option value="水塔清洗">水塔清洗</option>
-  </optgroup>
-  <optgroup label="加值服務">
-    <option value="防霉處理">防霉處理</option>
-    <option value="臭氧殺菌">臭氧殺菌</option>
-  </optgroup>
-  <optgroup label="加價項目">
-    <option value="變形金剛機型">變形金剛機型</option>
-    <option value="一體式水盤機型">一體式水盤機型</option>
-    <option value="超長費用">超長費用</option>
-  </optgroup>
-</select>
+        <option value="">請選擇服務項目</option>
+        <optgroup label="空調清洗">
+          <option value="冷氣清洗">冷氣清洗</option>
+        </optgroup>
+        <optgroup label="家電清洗">
+          <option value="洗衣機清洗">洗衣機清洗</option>
+        </optgroup>
+        <optgroup label="其他清洗">
+          <option value="自來水管清洗">自來水管清洗</option>
+          <option value="水塔清洗">水塔清洗</option>
+        </optgroup>
+        <optgroup label="加值服務">
+          <option value="防霉處理">防霉處理</option>
+          <option value="臭氧殺菌">臭氧殺菌</option>
+        </optgroup>
+        <optgroup label="加價項目">
+          <option value="變形金剛機型">變形金剛機型</option>
+          <option value="一體式水盤機型">一體式水盤機型</option>
+          <option value="超長費用">超長費用</option>
+        </optgroup>
+      </select>
     </td>
-    <td>
+        <td>
       <select class="form-select option">
-  <option value="">請選擇規格 / 坪數</option>
-  <optgroup label="機型 / 規格">
-    <option>分離式（壁掛式）</option>
-    <option>吊隱式（隱藏式）</option>
-    <option>直立式</option>
-    <option>家用</option>
-  </optgroup>
-  <optgroup label="優惠 / 加值">
-    <option>特殊機型額外加收費</option>
-    <option>冷氣防霉處理（抑菌噴劑）</option>
-    <option>高臭氧殺菌30分鐘</option>
-    <option>加購價</option>
-  </optgroup>
-  <optgroup label="坪數 / 衛浴數">
-    <option>無廚一衛</option>
-    <option>一廚一衛</option>
-    <option>一廚兩衛</option>
-    <option>一廚三衛</option>
-    <option>一廚四衛</option>
-  </optgroup>
-</select>
+        <option value="">請選擇規格 / 坪數</option>
+        <optgroup label="機型 / 規格">
+          <option>分離式（壁掛式）</option>
+          <option>吊隱式（隱藏式）</option>
+          <option>直立式</option>
+          <option>家用</option>
+        </optgroup>
+        <optgroup label="優惠 / 加值">
+          <option>特殊機型額外加收費</option>
+          <option>冷氣防霉處理（抑菌噴劑）</option>
+          <option>高臭氧殺菌30分鐘</option>
+          <option>加購價</option>
+        </optgroup>
+        <optgroup label="坪數 / 衛浴數">
+          <option>無廚一衛</option>
+          <option>一廚一衛</option>
+          <option>一廚兩衛</option>
+          <option>一廚三衛</option>
+          <option>一廚四衛</option>
+        </optgroup>
+      </select>
+    </td>
     </td>
     <td><input type="number" class="form-control qty" value="1" min="1" /></td>
     <td><input type="number" class="form-control price" value="0" /><small class="discount-note"></small></td>

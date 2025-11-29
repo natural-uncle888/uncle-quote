@@ -77,48 +77,9 @@ html, body { overflow-x: hidden; }
 
     .section-title { margin-top:15px; font-weight:700; border-bottom:2px solid #444; padding-bottom:4px; }
     #cleanFullBox{
-  padding: 1.1rem 1.4rem;
-  font-size: 1.02rem;
-  font-weight: 400;
-  color: #212529;
-  background: #fdfdfd;
-  border: 1px solid #cbd5e1;
-  border-left: 4px solid #0d6efd;
-  border-radius: 0.9rem;
-  text-align: left;
-  margin-top: 10px;
-  box-shadow: 0 2px 8px rgba(15,23,42,0.06);
-}
-
-#schedule-title{
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: #0d6efd;
-  margin-bottom: 0.25rem;
-}
-
-#cleanFull{
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #334155;
-}
-
-.summary-card{
-  border-radius: 16px;
-  box-shadow: 0 4px 14px rgba(15,23,42,.08);
-  background:#ffffff;
-  border: 1px solid #dde5f0;
-}
-
-.summary-card .fs-4{
-  letter-spacing: .03em;
-}
-
-.quote-summary .badge{
-  font-size: .75rem;
-  padding: .25rem .55rem;
-}
-
+      font-size:1rem; font-weight:400; color:#212529; background:#f8f9fa;
+      border:1px solid #dee2e6; border-radius:0.75rem; text-align:left; margin-top:10px;
+    }
 
     .discount-note{ font-size:.75rem; color:green; display:block; }
     .link-box{ background:#eef6ff; border-radius:6px; padding:10px; margin-top:12px; word-wrap:break-word; }
@@ -172,8 +133,37 @@ html, body { overflow-x: hidden; }
       box-shadow: 0 2px 8px rgba(255,173,77,.15);
     }
     .total-banner #total{ font-size:1.4rem; }
-  
-    /* --- Payment highlight styles --- */
+
+
+    /* 報價摘要卡 & 服務項目 legend */
+    .summary-card{
+      border-radius: 16px;
+      box-shadow: 0 4px 14px rgba(15,23,42,.08);
+      background:#ffffff;
+      border: 1px solid #dde5f0;
+    }
+    .summary-card .fs-4{
+      letter-spacing: .03em;
+    }
+    .quote-summary .badge{
+      font-size:.75rem;
+      padding:.25rem .6rem;
+    }
+    .quote-legend .badge{
+      font-weight:500;
+      padding:.25rem .6rem;
+      margin-right:.25rem;
+    }
+    @media (max-width: 576px){
+      .summary-card .card-body{
+        align-items:stretch;
+      }
+      .quote-summary .text-md-end{
+        text-align:left !important;
+      }
+    }
+
+      /* --- Payment highlight styles --- */
     .payment-highlight{
       background: linear-gradient(135deg, rgba(13,110,253,.08), rgba(25,135,84,.08));
       border: 1px dashed rgba(0,0,0,.12);
@@ -576,7 +566,6 @@ html, body { overflow-x: hidden; }
           <span id="summaryTaxTag" class="badge bg-secondary ms-2 d-none">含 5% 營業稅</span>
         </div>
       </div>
-
       <!-- 右側：時間 / 地址 / 狀態 -->
       <div class="text-md-end small w-100 w-md-auto">
         <div class="mb-1">
@@ -585,7 +574,7 @@ html, body { overflow-x: hidden; }
         </div>
         <div class="mb-1">
           <span class="text-muted d-block">服務地址</span>
-          <span id="summaryArea">地址尚未填寫</span>
+          <span id="summaryArea">尚未填寫</span>
         </div>
         <div>
           <span class="text-muted d-block">狀態</span>
@@ -633,7 +622,6 @@ html, body { overflow-x: hidden; }
       以下為將到府服務的技師與預約時間，如有異動可於排程前與我們協調調整。
     </p>
 
-    <!-- 技師資訊 -->
     <div class="row g-2 mb-3">
       <div class="col-md-6 col-12">
         <label class="form-label">技師姓名</label>
@@ -645,11 +633,10 @@ html, body { overflow-x: hidden; }
       </div>
     </div>
 
-    <!-- 預約時間 -->
-    <div class="p-3" id="cleanFullBox">
+    <div class="p-3 border rounded-3 bg-light" id="cleanFullBox">
       <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
         <div>
-          <div id="schedule-title">預約清洗時間</div>
+          <div id="schedule-title" class="fw-semibold mb-1">預約清洗時間</div>
           <div class="small text-muted">
             🕒 完整預約時間：<span id="cleanFull">尚未選擇</span>
           </div>
@@ -666,17 +653,18 @@ html, body { overflow-x: hidden; }
     </div>
   </div>
 </section>
-<!-- 服務項目 -->
+
 <section id="quote-content" aria-labelledby="quote-content-title">
   <h2 id="quote-content-title" class="section-title mb-3">報價內容</h2>
 <h3 id="services-title">服務項目</h3>
 <p class="small text-muted mb-2">以下為本次預計施作項目與費用，如有任何疑問，請在同意前與我們聯繫確認。</p>
-<div class="mb-2 small text-muted">
-  <span class="badge bg-light text-secondary border me-1">空調清洗</span>
-  <span class="badge bg-light text-secondary border me-1">家電清洗</span>
-  <span class="badge bg-light text-secondary border me-1">其他清洗</span>
-  <span class="badge bg-light text-secondary border">加值 / 加價項目</span>
+<div class="quote-legend small text-muted mb-2">
+  <span class="badge rounded-pill bg-light text-dark border me-1">空調清洗</span>
+  <span class="badge rounded-pill bg-light text-dark border me-1">家電清洗</span>
+  <span class="badge rounded-pill bg-light text-dark border me-1">加值服務</span>
+  <span class="badge rounded-pill bg-light text-dark border">加價項目</span>
 </div>
+
 <div class="table-responsive">
 <table class="table table-bordered bg-white" id="quoteTable">
 <thead class="table-light">
@@ -714,6 +702,7 @@ html, body { overflow-x: hidden; }
     <option value="超長費用">超長費用</option>
   </optgroup>
 </select>
+
 </td>
 <td>
 <select class="form-select option">
@@ -738,6 +727,7 @@ html, body { overflow-x: hidden; }
     <option>一廚四衛</option>
   </optgroup>
 </select>
+
 </td>
 <td><input class="form-control qty" min="1" type="number" value="1"/></td>
 <td>
