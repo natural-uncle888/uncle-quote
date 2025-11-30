@@ -230,6 +230,57 @@ html, body { overflow-x: hidden; }
       background: linear-gradient(135deg, rgba(13,110,253,.08), rgba(25,135,84,.08));
       border: 1px dashed rgba(0,0,0,.12);
     }
+    .pay-method-card{
+      border-radius:0.9rem;
+      border:1px solid #e9ecef;
+      padding:12px 14px;
+      background:#ffffff;
+    }
+    .pay-method-card .pay-icon{
+      width:2.25rem;
+      height:2.25rem;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#eef3ff;
+      font-size:1.3rem;
+    }
+    @media (max-width:576px){
+      .pay-method-card{
+        padding:10px 12px;
+      }
+    }
+    .warranty-highlight{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:0.9rem;
+      background:#f8f9ff;
+      border:1px solid #cfe2ff;
+      margin-bottom:12px;
+    }
+    .warranty-badge{
+      font-size:.75rem;
+      padding:2px 8px;
+      border-radius:999px;
+      background:#0d6efd;
+      color:#fff;
+      white-space:nowrap;
+      margin-top:2px;
+    }
+    .terms-subtitle{
+      font-size:.95rem;
+      font-weight:600;
+      margin-bottom:4px;
+    }
+    .terms-columns ul{
+      list-style:disc;
+    }
+    .terms-columns ul li+li{
+      margin-top:2px;
+    }
     #bankBox.pulse{ animation: pulseBox 1.2s ease-out 1; }
     @keyframes pulseBox{
       0%{ box-shadow: 0 0 0 0 rgba(13,110,253,.25); }
@@ -915,56 +966,111 @@ html, body { overflow-x: hidden; }
 </div>
 </div>
 <div class="card shadow-sm border-0 overflow-hidden">
-<div class="card-body">
-<ul class="mb-3">
-<li><strong>付款條件：</strong>完工後現場付款或匯款</li>
-<li><strong>付款期限：</strong><span class="badge rounded-pill text-bg-warning align-middle">當日付款完成</span></li>
-</ul>
-<div class="row gy-2">
-<div class="col-12 col-md-6 d-grid">
-<button class="btn btn-primary btn-lg" id="toggleAccountBtn" type="button">
-                查看匯款資訊
-              </button>
-</div>
-<div class="col-12 col-md-6 d-grid">
-<a class="btn btn-outline-success btn-lg d-none d-md-block" href="https://lin.ee/OHk6Rn7" rel="noopener" target="_blank">
-                透過 LINE 洽詢付款
-              </a>
-</div>
-</div>
-<div class="link-box mt-3 d-none" id="bankBox">
-<div class="d-flex align-items-center justify-content-between mb-2">
-<div class="fw-bold">匯款帳號（可複製）</div>
-<div class="d-none d-md-flex align-items-center gap-2 opacity-75 small">
-<span>ATM</span> · <span>網銀</span> · <span>行動銀行</span>
-</div>
-</div>
-<div class="text-muted mb-2" id="bankMeta">
-              銀行：台新銀行（812）　戶名：林宥騰
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="pay-method-card h-100">
+          <div class="d-flex align-items-center mb-2">
+            <div class="pay-icon me-2">💵</div>
+            <div>
+              <div class="fw-semibold">現場付款</div>
+              <div class="small text-muted">完工檢查後，於現場一次結清。</div>
             </div>
-<div class="input-group">
-<input aria-label="匯款帳號（僅數字，可複製）" class="form-control form-control-lg" id="bankAccount" inputmode="numeric" readonly="" type="text" value="28881000063784"/>
-<button class="btn btn-primary" id="copyAccountBtn" type="button">📋 複製帳號</button>
-</div>
-<small class="text-muted d-block mt-2">如需統編或三聯式發票，請於匯款備註填寫並另行告知。</small>
-</div>
-</div>
+          </div>
+          <ul class="small mb-0 ps-3">
+            <li>可採現金或現場轉帳。</li>
+            <li>建議於完工當日完成付款。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="pay-method-card h-100">
+          <div class="d-flex align-items-center mb-2">
+            <div class="pay-icon me-2">🏧</div>
+            <div>
+              <div class="fw-semibold">匯款 / 轉帳</div>
+              <div class="small text-muted">可於施工當日或事先匯款。</div>
+            </div>
+          </div>
+          <p class="small mb-2">點擊下方按鈕可展開匯款資訊並一鍵複製帳號。</p>
+          <div class="d-grid gap-2">
+            <button class="btn btn-primary btn-lg" id="toggleAccountBtn" type="button">
+              查看匯款資訊
+            </button>
+            <a class="btn btn-outline-success btn-lg d-none d-md-inline-flex align-items-center justify-content-center"
+               href="https://lin.ee/OHk6Rn7" rel="noopener" target="_blank">
+              透過 LINE 洽詢付款
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="link-box mt-3 d-none" id="bankBox">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="fw-bold">匯款帳號（可複製）</div>
+        <div class="d-none d-md-flex align-items-center gap-2 opacity-75 small">
+          <span>ATM</span> · <span>網銀</span> · <span>行動銀行</span>
+        </div>
+      </div>
+      <div class="text-muted mb-2" id="bankMeta">
+        銀行：台新銀行（812）　戶名：林宥騰
+      </div>
+      <div class="input-group">
+        <input aria-label="匯款帳號（僅數字，可複製）" class="form-control" id="bankAccount" inputmode="numeric" readonly type="text" value="28881000063784"/>
+        <button class="btn btn-primary" id="copyAccountBtn" type="button">📋 複製帳號</button>
+      </div>
+      <small class="text-muted d-block mt-2">如需統編或三聯式發票，請於匯款備註填寫並另行告知。</small>
+    </div>
+
+    <div class="text-muted small mt-3">
+      付款條件：完工後現場付款或匯款；付款期限：
+      <span class="badge rounded-pill text-bg-warning align-middle">當日付款完成</span>
+    </div>
+  </div>
 </div>
 </section>
 <!-- 備註與保固條款 -->
 
-</section>
 <section id="terms-contact" aria-labelledby="terms-contact-title">
   <h2 id="terms-contact-title" class="section-title mb-3">條款與聯絡方式</h2>
 <h3 id="terms-title">備註與保固條款</h3>
-<ol>
-<li>請於確認本報價內容無誤後，以按下「我同意此報價」按鈕回覆，以利後續安排作業。</li>
-<li>施作過程歡迎您全程在場參與，確保施工過程透明、保障雙方權益。</li>
-<li>施作前皆會進行基本功能檢測，確認機況正常後再進行清洗保養作業。</li>
-<li>施作如有拍攝照片或影片，可免費提供給您做為紀錄與備存參考。</li>
-<li>本服務享有14天保固期，如有異常使用狀況，請立即回報，我們將安排專人處理（※保固不包含因安裝不良或零件自然老化所導致之問題）。</li>
-<li>若您有任何疑問或需進一步協助，歡迎直接加入 LINE 官方帳號，我們將誠摯為您服務。</li>
-</ol>
+
+  <div class="warranty-highlight">
+    <div class="warranty-badge">保固說明</div>
+    <div>
+      <div class="fw-semibold mb-1">本服務享有 14 天保固期</div>
+      <div class="small mb-0">
+        如有清洗後異常狀況，請於 14 天內與我們聯繫，我們會安排專人回訪處理。
+        <span class="text-muted">（保固不包含安裝不良或零件自然老化所導致之問題。）</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3 terms-columns">
+    <div class="col-md-4">
+      <h4 class="terms-subtitle">施工前注意事項</h4>
+      <ul class="small mb-0 ps-3">
+        <li>請於確認本報價內容無誤後，再按下「我同意此報價」，以利安排作業。</li>
+        <li>若需變更日期或追加項目，請事先與我們聯繫調整報價。</li>
+      </ul>
+    </div>
+    <div class="col-md-4">
+      <h4 class="terms-subtitle">施工過程說明</h4>
+      <ul class="small mb-0 ps-3">
+        <li>施作過程歡迎您全程在場參與，確保施工過程透明、保障雙方權益。</li>
+        <li>施作前皆會進行基本功能檢測，確認機況正常後再進行清洗保養作業。</li>
+        <li>施作如有拍攝照片或影片，可免費提供給您做為紀錄與備存參考。</li>
+      </ul>
+    </div>
+    <div class="col-md-4">
+      <h4 class="terms-subtitle">完工後與聯絡</h4>
+      <ul class="small mb-0 ps-3">
+        <li>若完工後有任何狀況，請儘速與我們聯繫，以利安排保固處理。</li>
+        <li>若您有任何疑問或需進一步協助，歡迎透過下方聯絡方式與我們聯繫。</li>
+      </ul>
+    </div>
+  </div>
 <!-- 聯絡資訊 -->
 <h3 id="contact-title" class="section-title">聯絡資訊</h3>
 <div class="row align-items-start">
