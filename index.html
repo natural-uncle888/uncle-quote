@@ -33,6 +33,16 @@
 
 <meta charset="utf-8"/>
 <title>自然大叔 線上報價單</title>
+
+<!-- SEO / 社群分享資訊 -->
+<meta name="description" content="自然大叔線上報價單：空調清洗、家電清洗與到府服務明細，一鍵確認省時又安心。">
+
+<meta property="og:title" content="自然大叔 線上報價單">
+<meta property="og:description" content="查看這次的清洗服務明細與合計金額，線上按一下「我同意此報價」即可完成確認。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://res.cloudinary.com/dijzndzw2/image/upload/v1756944900/2_oufdld.png">
+<meta property="og:url" content="https://你的網域/">
+
 <link href="https://res.cloudinary.com/dijzndzw2/image/upload/v1757176751/logo-3_hddq08.png" rel="icon" type="image/png"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
@@ -76,9 +86,52 @@ html, body { overflow-x: hidden; }
     }
 
     .section-title { margin-top:15px; font-weight:700; border-bottom:2px solid #444; padding-bottom:4px; }
+    .nu-important-box{
+      background:#fff9e6;
+      border-left:4px solid #f0ad4e;
+      padding:10px 12px;
+      border-radius:8px;
+      margin-bottom:16px;
+      font-size:.9rem;
+    }
+    .nu-important-box ol{
+      margin:0 0 0 1.25rem;
+      padding:0;
+    }
+    .nu-important-box li+li{
+      margin-top:2px;
+    }
+    .nu-key-field{
+      background:#fffdf7;
+      border-radius:10px;
+      padding:12px 12px 8px;
+      border-left:3px solid #f0ad4e;
+    }
     #cleanFullBox{
-      font-size:1rem; font-weight:400; color:#212529; background:#f8f9fa;
-      border:1px solid #dee2e6; border-radius:0.75rem; text-align:left; margin-top:10px;
+      font-size:1rem;
+      font-weight:400;
+      color:#212529;
+      background:#fff7e6;
+      border:1px solid #f0ad4e;
+      border-left-width:4px;
+      border-radius:0.9rem;
+      text-align:left;
+      margin-top:10px;
+      box-shadow:0 2px 8px rgba(0,0,0,.04);
+    }
+    #cleanFullBox .schedule-main-text{
+      font-size:1.05rem;
+    }
+    #cleanFullBox .schedule-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:2px 10px;
+      border-radius:999px;
+      background:#fff3cd;
+      color:#8a6d3b;
+      font-size:.8rem;
+      white-space:nowrap;
     }
 
     .discount-note{ font-size:.75rem; color:green; display:block; }
@@ -153,6 +206,15 @@ html, body { overflow-x: hidden; }
       font-weight:500;
       padding:.25rem .6rem;
       margin-right:.25rem;
+    }
+    .service-cat-tag{
+      display:inline-block;
+      margin-top:4px;
+      font-size:.75rem;
+      padding:2px 8px;
+      border-radius:999px;
+      background:#f8f9fa;
+      color:#555;
     }
     @media (max-width: 576px){
       .summary-card .card-body{
@@ -556,6 +618,19 @@ html, body { overflow-x: hidden; }
 <!-- 報價摘要卡 -->
 <section class="quote-summary" aria-labelledby="quote-summary-title">
   <h2 id="quote-summary-title" class="visually-hidden">報價摘要</h2>
+
+  <!-- 目前狀態 + 下一步提示列 -->
+  <div id="statusHint"
+       class="alert alert-info py-2 px-3 mb-2 small d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+    <div class="fw-semibold">
+      <span class="me-1">目前狀態：</span>
+      <span id="statusHintLabel">待顧客確認</span>
+    </div>
+    <div id="statusHintText" class="text-muted mt-1 mt-md-0">
+      請您確認以下資料與報價內容無誤後，點選「我同意此報價」，以利後續的安排事宜。
+    </div>
+  </div>
+
   <div class="card summary-card mb-3">
     <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-start gap-3">
       <!-- 左側：金額 -->
@@ -589,8 +664,18 @@ html, body { overflow-x: hidden; }
 <section id="basic-info" aria-labelledby="basic-info-title">
   <h2 id="basic-info-title" class="section-title mb-3">基本資料</h2>
 
+  <!-- 填寫 / 確認步驟提示 -->
+  <div class="nu-important-box" aria-label="填寫與確認步驟">
+    <strong class="d-block mb-1">小提醒：請依序完成以下 3 個步驟</strong>
+    <ol class="mb-0 ps-3">
+      <li>先確認您的姓名、電話與服務地址是否正確。</li>
+      <li>檢查下方「服務項目與金額」是否符合需求。</li>
+      <li>若都沒有問題，請按下頁面中的「我同意此報價」。</li>
+    </ol>
+  </div>
+
   <!-- 顧客資訊 -->
-  <div class="mb-4">
+  <div class="mb-4 nu-key-field">
     <h3 id="customer-title" class="h5 mb-2">顧客資訊</h3>
     <p class="small text-muted mb-2">
       請您確認以下聯絡方式與服務地址是否正確，如需變更請事先與我們聯繫。
@@ -598,18 +683,18 @@ html, body { overflow-x: hidden; }
 
     <div class="row g-2 mb-3">
       <div class="col-md-6 col-12">
-        <label class="form-label">姓名</label>
+        <label class="form-label">姓名 <span class="text-danger small align-middle">＊必填</span></label>
         <input class="form-control" id="customerName" placeholder="客戶姓名" type="text"/>
       </div>
       <div class="col-md-6 col-12">
-        <label class="form-label">電話</label>
+        <label class="form-label">電話 <span class="text-danger small align-middle">＊必填</span></label>
         <input class="form-control" id="customerPhone" type="text"/>
       </div>
     </div>
 
     <div class="row g-2 mb-3">
       <div class="col-12">
-        <label class="form-label">服務地址</label>
+        <label class="form-label">服務地址 <span class="text-danger small align-middle">＊必填</span></label>
         <input class="form-control" id="customerAddress" placeholder="服務地址" type="text"/>
       </div>
     </div>
@@ -633,15 +718,21 @@ html, body { overflow-x: hidden; }
       </div>
     </div>
 
-    <div class="p-3 border rounded-3 bg-light" id="cleanFullBox">
-      <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2">
+    <div class="p-3" id="cleanFullBox">
+      <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
         <div>
-          <div id="schedule-title" class="fw-semibold mb-1">預約清洗時間</div>
-          <div class="small text-muted">
-            🕒 完整預約時間：<span id="cleanFull">尚未選擇</span>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+            <div class="schedule-pill">預約重點：請先確認時間</div>
+            <div id="schedule-title" class="fw-semibold">預約清洗時間</div>
+          </div>
+          <div class="schedule-main-text">
+            🕒 <span class="text-muted">完整預約時間：</span><span id="cleanFull" class="fw-semibold">尚未選擇</span>
+          </div>
+          <div class="text-muted small mt-1">
+            若需更改日期或時段，請先與我們聯繫確認可預約時間。
           </div>
         </div>
-        <div class="row g-2 mt-2 mt-sm-0">
+        <div class="row g-2 mt-2 mt-sm-0 flex-shrink-0" style="min-width:220px;">
           <div class="col-6">
             <input class="form-control" id="cleanDate" type="date"/>
           </div>
@@ -746,7 +837,9 @@ html, body { overflow-x: hidden; }
 <p class="small text-muted mb-2">可簡要說明價格計算方式、現場可能追加項目，以及發票與稅金相關注意事項。</p>
 <textarea class="form-control" id="otherNotes" rows="3">最終費用將依現場實際狀況進行調整，如有額外項目，將事前與您說明與報價。</textarea>
 <!-- 合計 -->
-<div id="totalContainer"></div><div class="form-check mt-2">
+<div id="totalContainer"></div>
+<div id="categoryTotals" class="mt-2"></div>
+<div class="form-check mt-2">
 <!-- === 活動優惠（在稅金之前）=== -->
 <details id="promoCard" class="card promo-card" open>
   <summary class="promo-header">

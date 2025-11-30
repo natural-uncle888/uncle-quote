@@ -150,25 +150,71 @@ function updateSummaryCard(){
 
   // 5. 狀態：用全域狀態 / 作廢旗標推論
   let key = '';
-  if (typeof window.QUOTE_STATUS === 'string'){
+  if (typeof window.QUOTE_STATUS === 'string') {
     key = window.QUOTE_STATUS.toLowerCase();
-  } else if (window.__QUOTE_CANCELLED__){
+  } else if (window.__QUOTE_CANCELLED__) {
     key = 'cancelled';
   }
 
+  // 狀態標籤（摘要卡右側）
   let label = '待顧客確認';
   let cls   = 'badge bg-warning text-dark';
-  if (key === 'confirmed'){
-    label = '已確認';
-    cls   = 'badge bg-success';
-  } else if (key === 'cancelled'){
-    label = '已作廢';
-    cls   = 'badge bg-secondary';
+
+  // 對客戶說明的下一步提示
+  let hintText = '請您確認以下資料與報價內容無誤後，點選「我同意此報價」，以利後續的安排事宜。';
+
+  if (key === 'confirmed') {
+    label   = '已確認';
+    cls     = 'badge bg-success';
+    hintText = '您已同意此報價，我們會依照預約時間安排服務，如需變更請與我們聯繫。';
+  } else if (key === 'cancelled') {
+    label   = '已作廢';
+    cls     = 'badge bg-secondary';
+    hintText = '本報價單已作廢，僅供紀錄，如需重新估價請與我們聯繫。';
   }
 
-  if (statusSpan){
+  if (statusSpan) {
     statusSpan.textContent = label;
     statusSpan.className = cls;
+  }
+
+  // 同步更新摘要卡上方的提示列
+  const hintLabelEl = document.querySelector('#statusHintLabel');
+  const hintTextEl  = document.querySelector('#statusHintText');
+
+  if (hintLabelEl) hintLabelEl.textContent = label;
+  if (hintTextEl)  hintTextEl.textContent  = hintText;
+}
+
+/* 類別標籤與小計輔助函數 */
+function getServiceCategoryLabel(selectEl){
+  if (!selectEl) return '';
+  try{
+    const opt = selectEl.options[selectEl.selectedIndex];
+    if (!opt) return '';
+    const parent = opt.parentElement;
+    if (parent && parent.tagName === 'OPTGROUP'){
+      return parent.getAttribute('label') || parent.label || '';
+    }
+  }catch(_){}
+  return '';
+}
+
+function updateRowCategoryTag(tr){
+  if (!tr) return;
+  const serviceSelect = tr.querySelector('.service');
+  if (!serviceSelect) return;
+  const cat = getServiceCategoryLabel(serviceSelect);
+  let pill = tr.querySelector('.service-cat-tag');
+  if (cat){
+    if (!pill){
+      pill = document.createElement('div');
+      pill.className = 'service-cat-tag small text-muted';
+      serviceSelect.insertAdjacentElement('afterend', pill);
+    }
+    pill.textContent = cat;
+  }else if (pill){
+    pill.textContent = '';
   }
 }
 
@@ -176,8 +222,10 @@ function updateSummaryCard(){
    自動帶價 + 合計
 ===================== */
 
+
 function updateTotals(){
   let total = 0, hasAC=false, hasPipe=false;
+  const categoryTotals = {};
 
   // 先掃描是否有指定項目以決定優惠
   qsa("#quoteTable tbody tr").forEach(tr=>{
@@ -226,9 +274,45 @@ function updateTotals(){
     }
 
     const subtotal = qty * (Number(priceEl?.value || price) || 0);
-    subEl.textContent = String(subtotal);
+    if (subEl) subEl.textContent = String(subtotal);
     total += subtotal;
+
+    // 類別標籤與小計累計
+    updateRowCategoryTag(tr);
+    const catLabel = getServiceCategoryLabel(tr.querySelector('.service'));
+    if (catLabel){
+      if (!categoryTotals[catLabel]) categoryTotals[catLabel] = { amount: 0, count: 0 };
+      categoryTotals[catLabel].amount += subtotal;
+      if (subtotal > 0) categoryTotals[catLabel].count += 1;
+    }
   });
+
+  // 更新類別小計區塊
+  window.__categoryTotals = categoryTotals;
+  try{
+    const box = qs('#categoryTotals');
+    if (box){
+      const entries = Object.entries(categoryTotals).filter(([_, v])=> (v.amount||0) > 0);
+      if (!entries.length){
+        box.innerHTML = '';
+        box.classList.add('d-none');
+      }else{
+        box.classList.remove('d-none');
+        const rows = entries.map(([label, info])=> 
+          `<div class="d-flex justify-content-between"><span>${label}</span><span>NT$ ${info.amount}（${info.count} 項）</span></div>`
+        ).join('');
+        box.innerHTML = `
+          <div class="card bg-light border-0">
+            <div class="card-body py-2">
+              <div class="small fw-semibold mb-1">類別小計</div>
+              <div class="small d-flex flex-column gap-1">
+                ${rows}
+              </div>
+            </div>
+          </div>`;
+      }
+    }
+  }catch(_){}
 
   // 未稅總計
   // Dynamic totals rendering (no static #total/#totalWithTax banners)
