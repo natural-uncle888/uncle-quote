@@ -30,6 +30,31 @@
   .reason-line .txt{ display:inline-block; max-width:28rem; vertical-align:bottom; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   @media (max-width: 640px){ .reason-line .txt{ max-width: 16rem; } }
 
+
+    .status-toggle-group{
+      margin-top:.35rem;
+      display:flex;
+      flex-wrap:wrap;
+      gap:.35rem;
+    }
+    .status-toggle-group .btn{
+      border-radius:999px;
+      padding:.15rem .75rem;
+      font-size:.8rem;
+    }
+    .status-toggle-group .btn.active{
+      background-color:#0d6efd;
+      color:#fff;
+    }
+    @media (max-width:576px){
+      .status-toggle-group{
+        margin-top:.5rem;
+      }
+    }
+    .period-label{
+      font-size:.85rem;
+      color:#6c757d;
+    }
 </style>
 
 <style>
@@ -41,10 +66,12 @@
 </head>
 <body>
 <div class="container py-4">
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h1 class="page-title m-0">📄 報價單總覽</h1>
-<h5 id="monthLabel" class="mt-2 mb-3 text-secondary text-center"></h5>
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-2">
     <div>
+      <h1 class="page-title m-0">📄 報價單總覽</h1>
+      <div id="monthLabel" class="period-label mt-1"></div>
+    </div>
+    <div class="mt-2 mt-md-0">
       <a href="./" class="btn btn-outline-primary">＋ 建立新報價單</a>
     </div>
   </div>
@@ -52,20 +79,23 @@
   <div class="card">
     <div class="card-body">
       <div class="row g-2 mb-3">
-        <div class="col-sm-4">
-          <input id="q" class="form-control" placeholder="搜尋 客戶/電話/地址/技師/ID">
+        <div class="col-sm-5 col-md-4">
+          <input id="q" class="form-control" placeholder="搜尋 客戶 / 電話 / 地址 / 技師 / ID">
+          <!-- 狀態快篩（按鈕樣式） -->
+          <div class="status-toggle-group mt-2" aria-label="狀態篩選">
+            <button type="button" class="btn btn-outline-secondary btn-sm active" data-status="all">全部</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-status="active">未作廢</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-status="cancelled">已作廢</button>
+          </div>
+          <!-- 原下拉選單保留供程式與輔助工具使用，改為隱藏 -->
+          <select id="filterStatus" class="form-select d-none">
+            <option value="all">全部狀態</option>
+            <option value="active">未作廢</option>
+            <option value="cancelled">已作廢</option>
+          </select>
         </div>
-        <div class="col-sm-5">
-          <div class="d-flex flex-wrap gap-2">
-            <select id="filterStatus" class="form-select">
-              <option value="all">全部狀態</option>
-              <option value="active">未作廢</option>
-              <option value="cancelled">已作廢</option>
-            </select>
-            <select id="sortOrder" class="form-select">
-              <option value="desc">最新優先</option>
-              <option value="asc">最舊優先</option>
-            </select>
+        <div class="col-sm-7 col-md-5">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
             <select id="periodSel" class="form-select">
               <option value="week">本週</option>
               <option value="month" selected>本月</option>
@@ -74,10 +104,14 @@
             </select>
             <input type="date" id="startDate" class="form-control d-none">
             <input type="date" id="endDate" class="form-control d-none">
+            <select id="sortOrder" class="form-select">
+              <option value="desc">最新優先</option>
+              <option value="asc">最舊優先</option>
+            </select>
           </div>
         </div>
-        <div class="col-sm-3">
-          <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 toolbar-right">
+        <div class="col-sm-12 col-md-3">
+          <div class="d-flex flex-wrap justify-content-end align-items-center gap-2 toolbar-right mt-2 mt-md-0">
             <!-- 按鈕群組 -->
             <div class="d-flex gap-2 order-1">
               <button id="exportCsv" class="btn btn-outline-success">匯出 CSV</button>
@@ -489,7 +523,33 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const endInp = $('#endDate');
 
   selSort?.addEventListener('change', ()=>{ CURRENT_SORT = selSort.value; applyClientSortAndFilter(); });
-  selFilter?.addEventListener('change', ()=>{ CURRENT_FILTER = selFilter.value; applyClientSortAndFilter(); });
+
+  // 原下拉選單改為隱藏，但仍保留邏輯
+  selFilter?.addEventListener('change', ()=>{
+    CURRENT_FILTER = selFilter.value;
+    applyClientSortAndFilter();
+
+    // 同步更新狀態快篩按鈕的 active 樣式
+    const buttons = $$('.status-toggle-group button[data-status]');
+    buttons.forEach(btn=>{
+      btn.classList.toggle('active', btn.getAttribute('data-status') === selFilter.value);
+    });
+  });
+
+  // 狀態快篩按鈕群組：點選時更新隱藏下拉與 CURRENT_FILTER
+  const statusButtons = $$('.status-toggle-group button[data-status]');
+  statusButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const val = btn.getAttribute('data-status') || 'all';
+      if (selFilter){
+        selFilter.value = val;
+        selFilter.dispatchEvent(new Event('change'));
+      } else {
+        CURRENT_FILTER = val;
+        applyClientSortAndFilter();
+      }
+    });
+  });
 
   selPeriod?.addEventListener('change', ()=>{
     const v = selPeriod.value;
@@ -502,7 +562,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   startInp?.addEventListener('change', ()=>{ applyClientSortAndFilter(); recomputeAggregates(); });
   endInp?.addEventListener('change', ()=>{ applyClientSortAndFilter(); recomputeAggregates(); });
 
-  
+
   /* init period inputs */
   {
     const v = selPeriod?.value || 'month';
@@ -510,7 +570,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     startInp.classList.toggle('d-none', !isCustom);
     endInp.classList.toggle('d-none', !isCustom);
   }
-$('#exportCsv')?.addEventListener('click', exportCsv);
+  $('#exportCsv')?.addEventListener('click', exportCsv);
 
   load();
 });
@@ -543,15 +603,46 @@ const cells = [dt, cust, total, statusZh, id, link].map(x => `"${String(x).repla
 }
 </script><script>
 function updateMonthLabel(){
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  const label = document.getElementById('monthLabel');
-  if(label){
-    label.textContent = `📅 顯示 ${y} 年 ${m} 月 報價單`;
-  }
+  try{
+    const label = document.getElementById('monthLabel');
+    if (!label) return;
+    const sel = document.getElementById('periodSel');
+    const [start, end] = typeof getSelectedPeriodRange === 'function'
+      ? getSelectedPeriodRange()
+      : [null, null];
+
+    const fmt = (d)=>{
+      if (!d || !(d instanceof Date) || Number.isNaN(d.getTime())) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const labelText = (()=>{
+      if (!sel) return '';
+      const opt = sel.options[sel.selectedIndex];
+      return opt ? opt.text.trim() : '';
+    })();
+
+    if (start && end){
+      label.textContent = `📅 顯示 ${fmt(start)} ～ ${fmt(end)} 報價單（${labelText}）`;
+    } else {
+      label.textContent = `📅 報價單列表（${labelText || '全部期間'}）`;
+    }
+  }catch(_){}
 }
-document.addEventListener('DOMContentLoaded', updateMonthLabel);
+
+document.addEventListener('DOMContentLoaded', function(){
+  updateMonthLabel();
+  const sel = document.getElementById('periodSel');
+  const startInp = document.getElementById('startDate');
+  const endInp = document.getElementById('endDate');
+  [sel, startInp, endInp].forEach(function(el){
+    if (!el) return;
+    el.addEventListener('change', updateMonthLabel);
+  });
+});
 </script><script>
 function showCancelReasonView(msg){
   try{
