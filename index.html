@@ -691,6 +691,9 @@ html, body { overflow-x: hidden; }
           NT$ <span id="summaryTotal">0</span>
           <span id="summaryTaxTag" class="badge bg-secondary ms-2 d-none">含 5% 營業稅</span>
         </div>
+        <div id="summaryPromoTag" class="mt-1 small text-success d-none">
+          已套用優惠：<span id="summaryPromoName">活動優惠</span>，折抵 <span id="summaryPromoAmount">0</span> 元
+        </div>
       </div>
       <!-- 右側：時間 / 地址 / 狀態 -->
       <div class="text-md-end small w-100 w-md-auto">
@@ -895,7 +898,7 @@ html, body { overflow-x: hidden; }
 <details id="promoCard" class="card promo-card" open>
   <summary class="promo-header">
     <strong>活動優惠</strong>
-    <span id="promoSummary" class="promo-summary">- $0</span>
+    <span id="promoSummary" class="promo-summary">目前未套用優惠</span>
   </summary>
 
   <div class="promo-row">

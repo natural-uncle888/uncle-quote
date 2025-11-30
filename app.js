@@ -1165,8 +1165,15 @@ document.addEventListener('DOMContentLoaded', function(){
 
   function renderSummary(discount){
     const sum=$('#promoSummary'), tot=$('#promoTotal'), n=currentName();
-    if (sum) sum.textContent = n + ' - $' + toInt(discount||0);
-    if (tot) tot.textContent = '- $' + toInt(discount||0);
+    const d = toInt(discount||0);
+    if (sum){
+      if (d>0){
+        sum.textContent = `已套用「${n}」，折抵 $${d}`;
+      }else{
+        sum.textContent = '目前未套用優惠';
+      }
+    }
+    if (tot) tot.textContent = (d>0 ? '- $' + d : '- $0');
   }
 
   function getSubtotal(){
@@ -1229,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if (typeof window.requestTotalsUpdate !== 'function'){ let t=null; window.requestTotalsUpdate=function(){ if(t) cancelAnimationFrame(t); t=requestAnimationFrame(()=>{ if(typeof window.updateTotals==='function') window.updateTotals(); }); }; }
   window.updateTotals = function(){
     const ret = (typeof orig==='function') ? orig() : undefined;
-    const subtotal = getSubtotal();
+        const subtotal = getSubtotal();
     const rules = (window.__promoData && window.__promoData.rules) ? window.__promoData.rules : state.rules;
     const discount = computeDiscount(subtotal, rules);
     renderSummary(discount);
@@ -1239,13 +1246,43 @@ document.addEventListener('DOMContentLoaded', function(){
     const tax = showTax ? Math.round(after * taxRate) : 0;
     const grand = after + tax;
     const container = document.getElementById('totalContainer');
+    const d = toInt(discount||0);
+
     if (container){
-      const promoRow = '<div class="d-flex justify-content-between promo-row-total"><span>活動優惠</span><strong>- $'+discount+'</strong></div>';
-      container.innerHTML = showTax
-        ? '<div class="d-flex flex-column gap-1">'+promoRow+'<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">'+grand+'</span> 元</h5></div>'
-        : '<div class="d-flex flex-column gap-1">'+promoRow+'<h5 class="mt-3 total-banner">合計：<span id="total">'+grand+'</span> 元</h5></div>';
+      const rows = [];
+      rows.push('<div class="d-flex justify-content-between small text-muted"><span>小計</span><span>NT$ '+ subtotal +'</span></div>');
+      if (d > 0){
+        rows.push('<div class="d-flex justify-content-between promo-row-total"><span>活動優惠折抵</span><strong>- $'+ d +'</strong></div>');
+      } else {
+        rows.push('<div class="d-flex justify-content-between small text-muted"><span>活動優惠</span><span>目前未套用</span></div>');
+      }
+      const totalLine = showTax
+        ? '<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">'+ grand +'</span> 元</h5>'
+        : '<h5 class="mt-2 total-banner">合計：<span id="total">'+ grand +'</span> 元</h5>';
+      container.innerHTML = '<div class="d-flex flex-column gap-1">'+ rows.join('') + totalLine + '</div>';
     }
-    const mobile = document.getElementById('totalMobile'); if (mobile) mobile.textContent=String(grand);
+
+    // 更新手機版合計
+    const mobile = document.getElementById('totalMobile');
+    if (mobile) mobile.textContent = String(grand);
+
+    // 更新摘要卡優惠提示
+    try{
+      const promoName = (window.__promoData && window.__promoData.displayName) || currentName();
+      const tagBox = document.getElementById('summaryPromoTag');
+      const nameSpan = document.getElementById('summaryPromoName');
+      const amountSpan = document.getElementById('summaryPromoAmount');
+      if (tagBox){
+        if (d > 0){
+          tagBox.classList.remove('d-none');
+          if (nameSpan) nameSpan.textContent = promoName || '活動優惠';
+          if (amountSpan) amountSpan.textContent = String(d);
+        }else{
+          tagBox.classList.add('d-none');
+        }
+      }
+    }catch(_){}
+
     window.__quoteTotals = { subtotal, promoDiscount:discount, taxableBase:after, tax, grandTotal:grand };
     return window.__quoteTotals;
   };
