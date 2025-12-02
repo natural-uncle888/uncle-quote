@@ -1284,6 +1284,14 @@ document.addEventListener('DOMContentLoaded', function(){
     }catch(_){}
 
     window.__quoteTotals = { subtotal, promoDiscount:discount, taxableBase:after, tax, grandTotal:grand };
+
+    // 同步更新報價摘要區（顯示折扣後金額）
+    try {
+      if (typeof updateSummaryCard === 'function') {
+        updateSummaryCard();
+      }
+    } catch (_) {}
+
     return window.__quoteTotals;
   };
 
