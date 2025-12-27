@@ -749,7 +749,19 @@ html, body { overflow-x: hidden; }
     <div class="row g-2 mb-3">
       <div class="col-12">
         <label class="form-label">服務地址</label>
-        <input class="form-control" id="customerAddress" placeholder="服務地址" type="text"/>
+
+        <!-- 多地址輸入（可新增 / 刪除 / 排序） -->
+        <div id="addressList" class="vstack gap-2"></div>
+
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          <button type="button" class="btn btn-outline-primary btn-sm" id="addAddressBtn">＋ 新增地址</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAddressesBtn">清空</button>
+        </div>
+
+        <!-- 隱藏欄位：維持與既有程式相容（以換行分隔多地址） -->
+        <textarea class="form-control d-none" id="customerAddress" rows="3"></textarea>
+
+        <div class="form-text">同一筆報價需到不同地點服務時，請逐筆新增地址並可用 ↑↓ 調整順序。</div>
       </div>
     </div>
   </div>

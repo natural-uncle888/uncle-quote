@@ -83,6 +83,174 @@ window.__QUOTE_CANCELLED__ = false;
 })();
 
 /* =====================
+   服務地址：多欄位（可新增 / 刪除 / 排序）
+   - UI：#addressList + #addAddressBtn + #clearAddressesBtn
+   - Hidden：#customerAddress（以換行分隔，維持既有序列化相容）
+===================== */
+function parseAddressText(raw){
+  const s = String(raw == null ? "" : raw);
+  return s.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);
+}
+function addressesToText(list){
+  return (Array.isArray(list) ? list : []).map(v=>String(v||"").trim()).filter(Boolean).join("\n");
+}
+function getAddressListEl(){ return qs("#addressList"); }
+
+function renumberAddressRows(){
+  const list = getAddressListEl();
+  if (!list) return;
+  const rows = Array.from(list.querySelectorAll(".address-row"));
+  rows.forEach((row, idx)=>{
+    const num = row.querySelector(".addr-num");
+    if (num) num.textContent = String(idx + 1);
+    row.dataset.index = String(idx);
+  });
+  rows.forEach((row, idx)=>{
+    const up = row.querySelector(".addr-up");
+    const down = row.querySelector(".addr-down");
+    if (up) up.disabled = idx === 0;
+    if (down) down.disabled = idx === rows.length - 1;
+  });
+}
+
+function syncHiddenAddressFromUI(){
+  const hidden = qs("#customerAddress");
+  const list = getAddressListEl();
+  if (!hidden || !list) return;
+  const vals = Array.from(list.querySelectorAll(".address-input"))
+    .map(i => String(i.value||"").trim())
+    .filter(Boolean);
+  hidden.value = vals.join("\n");
+  try{ updateSummaryCard(); }catch(_){}
+}
+
+function ensureAtLeastOneAddressRow(){
+  const list = getAddressListEl();
+  if (!list) return;
+  const rows = list.querySelectorAll(".address-row");
+  if (rows.length === 0){
+    addAddressRow("");
+  }
+}
+
+function addAddressRow(value){
+  const list = getAddressListEl();
+  if (!list) return null;
+  const row = document.createElement("div");
+  row.className = "input-group address-row";
+  const safeVal = String(value||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  row.innerHTML = `
+    <span class="input-group-text addr-num" style="min-width:46px;justify-content:center;">1</span>
+    <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+    <button class="btn btn-outline-secondary addr-up" type="button" title="往上">↑</button>
+    <button class="btn btn-outline-secondary addr-down" type="button" title="往下">↓</button>
+    <button class="btn btn-outline-danger addr-remove" type="button" title="刪除">✕</button>
+  `;
+  list.appendChild(row);
+  renumberAddressRows();
+  syncHiddenAddressFromUI();
+  return row;
+}
+
+function setAddressesFromData(addr){
+  const hidden = qs("#customerAddress");
+  const list = getAddressListEl();
+  if (!hidden || !list) return;
+
+  const lines = Array.isArray(addr) ? addr.map(v=>String(v||"")) : parseAddressText(addr);
+  hidden.value = addressesToText(lines);
+
+  list.innerHTML = "";
+  const finalLines = parseAddressText(hidden.value);
+  if (finalLines.length === 0) finalLines.push("");
+  // 先不要在 addAddressRow 裡 sync（避免重複），這裡批次加
+  finalLines.forEach(v=>{
+    const row = document.createElement("div");
+    row.className = "input-group address-row";
+    const safeVal = String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    row.innerHTML = `
+      <span class="input-group-text addr-num" style="min-width:46px;justify-content:center;">1</span>
+      <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+      <button class="btn btn-outline-secondary addr-up" type="button" title="往上">↑</button>
+      <button class="btn btn-outline-secondary addr-down" type="button" title="往下">↓</button>
+      <button class="btn btn-outline-danger addr-remove" type="button" title="刪除">✕</button>
+    `;
+    list.appendChild(row);
+  });
+
+  renumberAddressRows();
+  syncHiddenAddressFromUI();
+}
+
+function setAddressUIReadOnly(isReadonly){
+  const list = getAddressListEl();
+  if (!list) return;
+  list.querySelectorAll("button").forEach(b => b.disabled = !!isReadonly);
+  const addBtn = qs("#addAddressBtn"); if (addBtn) addBtn.disabled = !!isReadonly;
+  const clearBtn = qs("#clearAddressesBtn"); if (clearBtn) clearBtn.disabled = !!isReadonly;
+}
+
+function initAddressUI(){
+  const list = getAddressListEl();
+  const hidden = qs("#customerAddress");
+  if (!list || !hidden) return;
+
+  // 初始渲染
+  setAddressesFromData(hidden.value);
+
+  // 動態事件（委派）
+  list.addEventListener("input", (e)=>{
+    if (e.target && e.target.classList.contains("address-input")){
+      syncHiddenAddressFromUI();
+    }
+  });
+
+  list.addEventListener("click", (e)=>{
+    const btn = e.target && e.target.closest("button");
+    if (!btn) return;
+    const row = btn.closest(".address-row");
+    if (!row) return;
+
+    if (btn.disabled) return;
+
+    if (btn.classList.contains("addr-remove")){
+      row.remove();
+      ensureAtLeastOneAddressRow();
+      renumberAddressRows();
+      syncHiddenAddressFromUI();
+      return;
+    }
+
+    if (btn.classList.contains("addr-up")){
+      const prev = row.previousElementSibling;
+      if (prev) row.parentNode.insertBefore(row, prev);
+      renumberAddressRows();
+      syncHiddenAddressFromUI();
+      return;
+    }
+
+    if (btn.classList.contains("addr-down")){
+      const next = row.nextElementSibling;
+      if (next) row.parentNode.insertBefore(next, row);
+      renumberAddressRows();
+      syncHiddenAddressFromUI();
+      return;
+    }
+  });
+
+  qs("#addAddressBtn")?.addEventListener("click", ()=>{
+    const row = addAddressRow("");
+    try{ row?.querySelector(".address-input")?.focus(); }catch(_){}
+  });
+
+  qs("#clearAddressesBtn")?.addEventListener("click", ()=>{
+    list.innerHTML = "";
+    addAddressRow("");
+    syncHiddenAddressFromUI();
+  });
+}
+
+/* =====================
    預約時間合成
 ===================== */
 function updateCleanFull(){
@@ -141,11 +309,18 @@ function updateSummaryCard(){
     dateSpan.textContent = txt || '尚未排定，將由我們與您聯繫。';
   }
 
-  // 4. 服務地址：拿 #customerAddress 的值
+  // 4. 服務地址：拿 #customerAddress 的值（支援多行 / 多地址）
   if (areaSpan){
-    const addr = document.querySelector('#customerAddress');
-    const val = (addr?.value || addr?.textContent || '').trim();
-    areaSpan.textContent = val || '地址尚未填寫';
+    const addrEl = document.querySelector('#customerAddress');
+    const raw = (addrEl?.value || addrEl?.textContent || '').trim();
+    const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+
+    // 單一地址直接顯示；多地址用「1. ...；2. ...」避免摘要卡換行問題
+    const display = lines.length
+      ? (lines.length === 1 ? lines[0] : lines.map((s, i) => `${i + 1}. ${s}`).join('；'))
+      : '';
+
+    areaSpan.textContent = display || '地址尚未填寫';
   }
 
   // 5. 狀態：用全域狀態 / 作廢旗標推論
@@ -608,8 +783,14 @@ function applyReadOnlyData(data){
   }
   qs("#customerName").value   = data.customer  || "";
   qs("#customerPhone").value  = data.phone     || "";
-  qs("#customerAddress").value= data.address   || "";
-  qs("#technicianName").value = data.technician|| "";
+  // 服務地址：支援舊版（單一字串/多行）與新版（array）
+  try{ setAddressesFromData(data.address || ""); }catch(_){
+    // fallback：僅寫入 hidden textarea
+    const addr = data.address;
+    const hidden = qs("#customerAddress");
+    if (hidden) hidden.value = Array.isArray(addr) ? addr.join("\n") : (addr || "");
+  }
+qs("#technicianName").value = data.technician|| "";
   qs("#technicianPhone").value= data.techPhone || "";
   (function(){
     const cf = qs("#cleanFull");
@@ -655,6 +836,7 @@ function applyReadOnlyData(data){
 
   qsa("input, textarea").forEach(el=>el.setAttribute("readonly", true));
   qsa("select").forEach(el=>el.setAttribute("disabled", true));
+  try{ setAddressUIReadOnly(true); }catch(_){ }
   ["addRow","shareLinkBtn","shareLinkBtnMobile"].forEach(id=>{ const el = qs("#"+id); if(el) el.style.display="none"; });
   updateTotals();
 }
@@ -771,6 +953,9 @@ document.addEventListener('DOMContentLoaded', function(){
       if (typeof updateTotals === 'function') updateTotals();
     } catch(_) {}
   })();
+
+  // Initialize multi-address UI
+  try{ initAddressUI(); setAddressUIReadOnly(false); }catch(_){ }
 
   removeClass(qs('#readonlyActions'), 'd-none');
   removeClass(qs('#cancelBtnDesktop'), 'd-none');

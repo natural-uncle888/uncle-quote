@@ -73,6 +73,16 @@ async function maybeSendEmail(payload, siteBase){
 
 /* ======================= HTML Template（行動裝置優化） ======================= */
 function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function formatAddress(addr){
+  if (Array.isArray(addr)){
+    return addr.map(s=>String(s||"").trim()).filter(Boolean).map(esc).join("<br>");
+  }
+  const raw = String(addr == null ? "" : addr).trim();
+  if (!raw) return "";
+  return raw.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(esc).join("<br>");
+}
+
 function toNum(primary, fallback){ const n = Number(primary ?? fallback ?? 0); return Number.isFinite(n) ? n : 0; }
 function fmt(n){ return toNum(n).toLocaleString(); }
 
@@ -122,7 +132,7 @@ function buildConfirmHtml(p, siteBase){
             <td style="padding:18px 20px;color:#0f172a;font-size:16px;line-height:1.7;">
               <p style="margin:0 0 6px;"><strong>客戶名稱：</strong>${esc(p.customer)}</p>
               <p style="margin:0 0 6px;"><strong>電話：</strong>${esc(p.phone)}</p>
-              <p style="margin:0 0 6px;"><strong>地址：</strong>${esc(p.address)}</p>
+              <p style="margin:0 0 6px;"><strong>地址：</strong>${formatAddress(p.address)}</p>
               <p style="margin:0 0 6px;"><strong>預約時間：</strong>${esc(p.cleanTime)}</p>
               <p style="margin:0 0 14px;"><strong>技師：</strong>${esc(p.technician)}（${esc(p.techPhone)}）</p>
 
