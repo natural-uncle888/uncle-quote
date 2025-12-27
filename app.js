@@ -115,6 +115,27 @@ function timeWithPeriod(t){
   return `${period} ${hh}:${mm}`;
 }
 
+function updateAddrTimePeriod(row){
+  try{
+    if (!row) return;
+    const input = row.querySelector(".address-time");
+    const badge = row.querySelector(".addr-time-period");
+    if (!input || !badge) return;
+    const raw = String(input.value || "").trim();
+    const m = raw.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*$/);
+    if (!m){
+      badge.textContent = "";
+      badge.classList.add("d-none");
+      return;
+    }
+    const h = parseInt(m[1], 10);
+    const period = (h < 12) ? "上午" : (h < 18 ? "下午" : "晚上");
+    badge.textContent = period;
+    badge.classList.remove("d-none");
+  }catch(_){}
+}
+
+
 function getAddressListEl(){ return qs("#addressList"); }
 
 // 地址時間（方案B：共用日期＋每地址選擇時間）
@@ -182,7 +203,10 @@ function addAddressRow(value, slotValue){
       </div>
       <div class="addr-fields d-flex flex-column gap-2 flex-grow-1">
         <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
-        <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+        <div class="addr-time-row d-flex align-items-center gap-2">
+          <span class="badge text-bg-light border text-dark addr-time-period d-none" aria-hidden="true"></span>
+          <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+        </div>
       </div>
     </div>
     <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
@@ -194,6 +218,7 @@ function addAddressRow(value, slotValue){
   list.appendChild(row);
   // 套用時間
   try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = String(slotValue || ''); } }catch(_){ }
+  updateAddrTimePeriod(row);
   renumberAddressRows();
   syncHiddenAddressFromUI();
   return row;
@@ -226,7 +251,10 @@ function setAddressesFromData(addr, slotsArr){
         </div>
         <div class="addr-fields d-flex flex-column gap-2 flex-grow-1">
         <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
-        <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+        <div class="addr-time-row d-flex align-items-center gap-2">
+          <span class="badge text-bg-light border text-dark addr-time-period d-none" aria-hidden="true"></span>
+          <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+        </div>
       </div>
       </div>
       <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
@@ -263,6 +291,9 @@ function initAddressUI(){
   // 動態事件（委派）
   list.addEventListener("input", (e)=>{
     if (e.target && (e.target.classList.contains("address-input") || e.target.classList.contains("address-time"))){
+      if (e.target.classList.contains("address-time")){
+        updateAddrTimePeriod(e.target.closest(".address-row"));
+      }
       syncHiddenAddressFromUI();
     }
   });

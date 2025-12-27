@@ -302,6 +302,12 @@ html, body { overflow-x: hidden; }
   background:#f8f9fa;color:#495057;font-weight:700;font-size:.9rem;
 }
 .address-row .address-input{min-width:0;}
+.address-row .addr-time-row .addr-time-period{min-width:2.8em;text-align:center;line-height:1;}
+.address-row .addr-time-row .address-time{flex:1 1 auto;min-width:0;}
+@media (max-width:576px){
+  .address-row .addr-time-row{gap:.4rem;}
+  .address-row .addr-time-row .addr-time-period{min-width:2.5em;font-size:.75rem;}
+}
 .address-row .addr-remove-mobile{display:none;} /* 預設：桌機不顯示（桌機用右側按鈕列） */
 
 @media (max-width:576px){
