@@ -294,20 +294,32 @@ html, body { overflow-x: hidden; }
 
 /* 服務地址多列輸入：手機優化（拖曳＋刪除在同一行工具列） */
 .address-row{border:1px solid #dfe7f1;background:#fff;border-radius:.75rem;padding:.5rem;}
-.address-row .addr-num{min-width:46px;display:inline-flex;justify-content:center;align-items:center;border:1px solid #dee2e6;}
+.address-row .addr-toolbar{gap:.5rem;}
+.address-row .addr-num{
+  width:34px;height:34px;min-width:34px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:999px;border:1px solid #dee2e6;
+  background:#f8f9fa;color:#495057;font-weight:700;font-size:.9rem;
+}
 .address-row .address-input{min-width:0;}
 .address-row .addr-remove-mobile{display:none;} /* 預設：桌機不顯示（桌機用右側按鈕列） */
 
 @media (max-width:576px){
   /* 手機：隱藏右側按鈕列（避免擋住輸入），改用上方工具列（拖曳＋刪除） */
+  .address-row{padding:.45rem;}
   .address-row .addr-actions{display:none !important;}
   .address-row .addr-remove-mobile{display:inline-flex !important;}
-  .address-row .addr-num{min-width:38px;}
-  .address-row .addr-handle{padding:.25rem .45rem;}
-  .address-row .addr-toolbar{width:100%;}
+  .address-row .addr-toolbar{width:100%;gap:.35rem;}
+  .address-row .addr-num{
+    width:24px;height:24px;min-width:24px;
+    font-size:.78rem;border:0;background:#eef1f6;
+  }
+  .address-row .addr-handle{padding:.2rem .4rem;}
+  .address-row .addr-remove-mobile{padding:.2rem .4rem;}
   .address-row .address-input{width:100%;}
 }
 </style>
+
 <style>
   /* 已作廢視覺加強 */
   #cancelBanner {
