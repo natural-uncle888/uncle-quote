@@ -101,6 +101,12 @@ function legacySlotToTime(v){
   if (s === "AM") return "09:00";
   if (s === "PM") return "13:00";
   if (s === "EV") return "18:00";
+  // 正規化 9:00 → 09:00（避免某些行動裝置 time input 顯示/回填不一致）
+  const m = s.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*$/);
+  if (m){
+    const hh = String(parseInt(m[1], 10)).padStart(2,'0');
+    return `${hh}:${m[2]}`;
+  }
   return s;
 }
 function timeWithPeriod(t){
@@ -217,7 +223,7 @@ function addAddressRow(value, slotValue){
   `;
   list.appendChild(row);
   // 套用時間
-  try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = String(slotValue || ''); } }catch(_){ }
+  try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = legacySlotToTime(slotValue || ''); } }catch(_){ }
   updateAddrTimePeriod(row);
   renumberAddressRows();
   syncHiddenAddressFromUI();
@@ -264,7 +270,9 @@ function setAddressesFromData(addr, slotsArr){
       </div>
     `;
     list.appendChild(row);
-    try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = String(slotLines[idx] || ''); } }catch(_){ }
+    try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = legacySlotToTime(slotLines[idx] || ''); } }catch(_){ }
+    // 初始化每列的 上午/下午/晚上 徽章（避免行動裝置只觸發 change 而未觸發 input）
+    updateAddrTimePeriod(row);
   });
 
   renumberAddressRows();
@@ -294,6 +302,14 @@ function initAddressUI(){
       if (e.target.classList.contains("address-time")){
         updateAddrTimePeriod(e.target.closest(".address-row"));
       }
+      syncHiddenAddressFromUI();
+    }
+  });
+
+  // 行動裝置的 <input type="time"> 常只會觸發 change，不一定會觸發 input
+  list.addEventListener("change", (e)=>{
+    if (e.target && e.target.classList.contains("address-time")){
+      updateAddrTimePeriod(e.target.closest(".address-row"));
       syncHiddenAddressFromUI();
     }
   });
