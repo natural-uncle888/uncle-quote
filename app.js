@@ -137,14 +137,19 @@ function addAddressRow(value){
   const list = getAddressListEl();
   if (!list) return null;
   const row = document.createElement("div");
-  row.className = "input-group address-row";
+  row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
   const safeVal = String(value||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   row.innerHTML = `
-    <span class="input-group-text addr-num" style="min-width:46px;justify-content:center;">1</span>
-    <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
-    <button class="btn btn-outline-secondary addr-up" type="button" title="往上">↑</button>
-    <button class="btn btn-outline-secondary addr-down" type="button" title="往下">↓</button>
-    <button class="btn btn-outline-danger addr-remove" type="button" title="刪除">✕</button>
+    <div class="addr-main d-flex align-items-center gap-2 flex-grow-1">
+      <span class="badge text-bg-light addr-num" style="min-width:46px;display:inline-flex;justify-content:center;align-items:center;border:1px solid #dee2e6;">1</span>
+      <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
+      <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+    </div>
+    <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
+      <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上">↑</button>
+      <button class="btn btn-outline-secondary btn-sm addr-down" type="button" title="往下">↓</button>
+      <button class="btn btn-outline-danger btn-sm addr-remove" type="button" title="刪除">✕</button>
+    </div>
   `;
   list.appendChild(row);
   renumberAddressRows();
@@ -166,15 +171,16 @@ function setAddressesFromData(addr){
   // 先不要在 addAddressRow 裡 sync（避免重複），這裡批次加
   finalLines.forEach(v=>{
     const row = document.createElement("div");
-    row.className = "input-group address-row";
+    row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
     const safeVal = String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     row.innerHTML = `
-      <span class="input-group-text addr-num" style="min-width:46px;justify-content:center;">1</span>
-      <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
-      <button class="btn btn-outline-secondary addr-up" type="button" title="往上">↑</button>
-      <button class="btn btn-outline-secondary addr-down" type="button" title="往下">↓</button>
-      <button class="btn btn-outline-danger addr-remove" type="button" title="刪除">✕</button>
-    `;
+    <span class="input-group-text addr-num" style="min-width:46px;justify-content:center;">1</span>
+    <button class="btn btn-outline-secondary addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
+    <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+    <button class="btn btn-outline-secondary addr-up" type="button" title="往上">↑</button>
+    <button class="btn btn-outline-secondary addr-down" type="button" title="往下">↓</button>
+    <button class="btn btn-outline-danger addr-remove" type="button" title="刪除">✕</button>
+  `;
     list.appendChild(row);
   });
 
@@ -238,6 +244,24 @@ function initAddressUI(){
     }
   });
 
+
+  // 拖曳排序（滑鼠 / 手機）
+  // - 使用 SortableJS（由 index.html 載入）
+  // - 若載入失敗，仍可用 ↑↓ 排序
+  try{
+    if (window.Sortable && !list._addrSortable){
+      list._addrSortable = new Sortable(list, {
+        handle: ".addr-handle",
+        animation: 150,
+        fallbackOnBody: true,
+        touchStartThreshold: 4,
+        ghostClass: "sortable-ghost",
+        chosenClass: "sortable-chosen",
+        dragClass: "sortable-drag",
+        onEnd: ()=>{ renumberAddressRows(); syncHiddenAddressFromUI(); }
+      });
+    }
+  }catch(_){}
   qs("#addAddressBtn")?.addEventListener("click", ()=>{
     const row = addAddressRow("");
     try{ row?.querySelector(".address-input")?.focus(); }catch(_){}
