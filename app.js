@@ -94,7 +94,30 @@ function parseAddressText(raw){
 function addressesToText(list){
   return (Array.isArray(list) ? list : []).map(v=>String(v||"").trim()).filter(Boolean).join("\n");
 }
+
+// 舊版時段代碼相容：AM/PM/EV → 代表性起始時間
+function legacySlotToTime(v){
+  const s = String(v || "").trim();
+  if (s === "AM") return "09:00";
+  if (s === "PM") return "13:00";
+  if (s === "EV") return "18:00";
+  return s;
+}
+function timeWithPeriod(t){
+  const raw = String(t || "").trim();
+  if (!raw) return "";
+  const m = raw.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*$/);
+  if (!m) return raw;
+  const h = parseInt(m[1], 10);
+  const mm = m[2];
+  const hh = String(h).padStart(2,'0');
+  const period = (h < 12) ? "上午" : (h < 18 ? "下午" : "晚上");
+  return `${period} ${hh}:${mm}`;
+}
+
 function getAddressListEl(){ return qs("#addressList"); }
+
+// 地址時間（方案B：共用日期＋每地址選擇時間）
 
 function renumberAddressRows(){
   const list = getAddressListEl();
@@ -115,13 +138,23 @@ function renumberAddressRows(){
 
 function syncHiddenAddressFromUI(){
   const hidden = qs("#customerAddress");
+  const hiddenSlots = qs("#customerAddressSlots");
   const list = getAddressListEl();
   if (!hidden || !list) return;
-  const vals = Array.from(list.querySelectorAll(".address-input"))
-    .map(i => String(i.value||"").trim())
-    .filter(Boolean);
-  hidden.value = vals.join("\n");
-  try{ updateSummaryCard(); }catch(_){}
+  const addrs = [];
+  const slots = [];
+  Array.from(list.querySelectorAll(".address-row")).forEach(row=>{
+    const addr = String(row.querySelector(".address-input")?.value || "").trim();
+    const slot = String(row.querySelector(".address-time")?.value || "");
+    if (addr){
+      addrs.push(addr);
+      slots.push(slot);
+    }
+  });
+  hidden.value = addrs.join("\n");
+  if (hiddenSlots) hiddenSlots.value = slots.join("\n");
+  try{ updateCleanFull(); }catch(_){ }
+  try{ updateSummaryCard(); }catch(_){ }
 }
 
 function ensureAtLeastOneAddressRow(){
@@ -129,16 +162,17 @@ function ensureAtLeastOneAddressRow(){
   if (!list) return;
   const rows = list.querySelectorAll(".address-row");
   if (rows.length === 0){
-    addAddressRow("");
+    addAddressRow("", "");
   }
 }
 
-function addAddressRow(value){
+function addAddressRow(value, slotValue){
   const list = getAddressListEl();
   if (!list) return null;
   const row = document.createElement("div");
   row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
   const safeVal = String(value||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const safeTime = String(legacySlotToTime(slotValue||"")).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     row.innerHTML = `
     <div class="addr-main d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-grow-1">
       <div class="addr-toolbar d-flex align-items-center gap-2 flex-shrink-0">
@@ -146,7 +180,10 @@ function addAddressRow(value){
         <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
         <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-mobile" type="button" title="刪除" aria-label="刪除地址">✕</button>
       </div>
-      <input type="text" class="form-control address-input flex-grow-1" placeholder="請輸入服務地址" value="${safeVal}">
+      <div class="addr-fields d-flex flex-column gap-2 flex-grow-1">
+        <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+        <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+      </div>
     </div>
     <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
       <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上" aria-label="往上移動">↑</button>
@@ -155,27 +192,31 @@ function addAddressRow(value){
     </div>
   `;
   list.appendChild(row);
+  // 套用時間
+  try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = String(slotValue || ''); } }catch(_){ }
   renumberAddressRows();
   syncHiddenAddressFromUI();
   return row;
 }
 
-function setAddressesFromData(addr){
+function setAddressesFromData(addr, slotsArr){
   const hidden = qs("#customerAddress");
   const list = getAddressListEl();
   if (!hidden || !list) return;
 
   const lines = Array.isArray(addr) ? addr.map(v=>String(v||"")) : parseAddressText(addr);
+  const slotLines = Array.isArray(slotsArr) ? slotsArr.map(v=>String(v||"")) : (typeof slotsArr==='string' ? slotsArr.split(/\r?\n/).map(s=>s.trim()) : []);
   hidden.value = addressesToText(lines);
 
   list.innerHTML = "";
   const finalLines = parseAddressText(hidden.value);
   if (finalLines.length === 0) finalLines.push("");
   // 先不要在 addAddressRow 裡 sync（避免重複），這裡批次加
-  finalLines.forEach(v=>{
+  finalLines.forEach((v, idx)=>{
     const row = document.createElement("div");
     row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
     const safeVal = String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const safeTime = String(legacySlotToTime(slotLines[idx] || "")).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
         row.innerHTML = `
       <div class="addr-main d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-grow-1">
         <div class="addr-toolbar d-flex align-items-center gap-2 flex-shrink-0">
@@ -183,7 +224,10 @@ function setAddressesFromData(addr){
           <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
           <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-mobile" type="button" title="刪除" aria-label="刪除地址">✕</button>
         </div>
-        <input type="text" class="form-control address-input flex-grow-1" placeholder="請輸入服務地址" value="${safeVal}">
+        <div class="addr-fields d-flex flex-column gap-2 flex-grow-1">
+        <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+        <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+      </div>
       </div>
       <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
         <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上" aria-label="往上移動">↑</button>
@@ -192,6 +236,7 @@ function setAddressesFromData(addr){
       </div>
     `;
     list.appendChild(row);
+    try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = String(slotLines[idx] || ''); } }catch(_){ }
   });
 
   renumberAddressRows();
@@ -202,7 +247,8 @@ function setAddressUIReadOnly(isReadonly){
   const list = getAddressListEl();
   if (!list) return;
   list.querySelectorAll("button").forEach(b => b.disabled = !!isReadonly);
-  const addBtn = qs("#addAddressBtn"); if (addBtn) addBtn.disabled = !!isReadonly;
+  list.querySelectorAll("input, select, textarea").forEach(el => el.disabled = !!isReadonly);
+const addBtn = qs("#addAddressBtn"); if (addBtn) addBtn.disabled = !!isReadonly;
   const clearBtn = qs("#clearAddressesBtn"); if (clearBtn) clearBtn.disabled = !!isReadonly;
 }
 
@@ -212,16 +258,16 @@ function initAddressUI(){
   if (!list || !hidden) return;
 
   // 初始渲染
-  setAddressesFromData(hidden.value);
+  setAddressesFromData(hidden.value, qs('#customerAddressSlots')?.value || '');
 
   // 動態事件（委派）
   list.addEventListener("input", (e)=>{
-    if (e.target && e.target.classList.contains("address-input")){
+    if (e.target && (e.target.classList.contains("address-input") || e.target.classList.contains("address-time"))){
       syncHiddenAddressFromUI();
     }
   });
 
-  list.addEventListener("click", (e)=>{
+list.addEventListener("click", (e)=>{
     const btn = e.target && e.target.closest("button");
     if (!btn) return;
     const row = btn.closest(".address-row");
@@ -273,13 +319,13 @@ function initAddressUI(){
     }
   }catch(_){}
   qs("#addAddressBtn")?.addEventListener("click", ()=>{
-    const row = addAddressRow("");
+    const row = addAddressRow("", "");
     try{ row?.querySelector(".address-input")?.focus(); }catch(_){}
   });
 
   qs("#clearAddressesBtn")?.addEventListener("click", ()=>{
     list.innerHTML = "";
-    addAddressRow("");
+    addAddressRow("", "");
     syncHiddenAddressFromUI();
   });
 }
@@ -289,14 +335,48 @@ function initAddressUI(){
 ===================== */
 function updateCleanFull(){
   const dv = qs("#cleanDate")?.value;
-  const tv = qs("#cleanTime")?.value;
-  if(!dv || !tv) return;
-  const dt = new Date(`${dv}T${tv}`);
-  const wd = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][dt.getDay()];
-  const yyyy = dt.getFullYear(); const mm = String(dt.getMonth()+1).padStart(2,'0'); const dd = String(dt.getDate()).padStart(2,'0');
-  const hh = String(dt.getHours()).padStart(2,'0'); const mi = String(dt.getMinutes()).padStart(2,'0');
-  const ampm = dt.getHours() < 12 ? "上午" : "下午";
-  qs("#cleanFull").innerHTML = `<span class="cf-date">${yyyy}/${mm}/${dd}（${wd}）</span><span class="cf-time">${ampm} ${hh}:${mi} 開始</span>`;
+  const list = getAddressListEl();
+  const rows = list ? Array.from(list.querySelectorAll(".address-row")) : [];
+  const slots = rows.map(r => String(r.querySelector(".address-time")?.value || ""));
+
+  // 日期格式
+  let dateText = "";
+  if (dv){
+    const dt = new Date(`${dv}T00:00:00`);
+    const wd = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][dt.getDay()];
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+    const dd = String(dt.getDate()).padStart(2,'0');
+    dateText = `${yyyy}/${mm}/${dd}（${wd}）`;
+  }
+
+  // 依地址順序輸出時間（只針對有填地址的列）
+  const addrHidden = qs("#customerAddress")?.value || "";
+  const addrLines = addrHidden.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const slotsHidden = qs("#customerAddressSlots")?.value || "";
+  const slotLines = slotsHidden.split(/\r?\n/).map(s=>s.trim());
+
+  const lines = [];
+  if (addrLines.length){
+    const n = addrLines.length;
+    for (let i=0;i<addrLines.length;i++){
+      const t0 = legacySlotToTime(slotLines[i] || "");
+      const t = timeWithPeriod(t0);
+      const label = t ? t : "時間待確認";
+      if (n === 1) lines.push(label);
+      else lines.push(`第${i+1}地址：${label}`);
+    }
+  }
+
+  const cf = qs("#cleanFull");
+  if (!cf) return;
+
+  if (!dateText && lines.length===0){
+    cf.textContent = "尚未選擇";
+    return;
+  }
+  const out = [dateText || "日期待確認", ...lines].filter(Boolean).join("\n");
+  cf.textContent = out;
   try{ updateSummaryCard(); }catch(_){}
 }
 qs("#cleanDate")?.addEventListener("change", updateCleanFull);
@@ -349,9 +429,9 @@ function updateSummaryCard(){
     const raw = (addrEl?.value || addrEl?.textContent || '').trim();
     const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 
-    // 單一地址直接顯示；多地址用「1. ...；2. ...」避免摘要卡換行問題
+  // 單一地址直接顯示；多地址用「1. ...\n2. ...」並在摘要區以換行呈現
     const display = lines.length
-      ? (lines.length === 1 ? lines[0] : lines.map((s, i) => `${i + 1}. ${s}`).join('；'))
+      ? (lines.length === 1 ? lines[0] : lines.map((s, i) => `${i + 1}. ${s}`).join('\n'))
       : '';
 
     areaSpan.textContent = display || '地址尚未填寫';
@@ -776,9 +856,11 @@ function collectShareData(){
     quoteInfo: qs("#quoteInfo").textContent.replace(/\s+/g,' ').trim(),
     customer:  qs("#customerName").value,
     phone:     qs("#customerPhone").value,
-    address:   qs("#customerAddress").value,
+    address:   (function(){ try{ return (qs("#customerAddress").value||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean); }catch(_){ return []; } })(),
+    addressSlots: (function(){ try{ return (qs("#customerAddressSlots")?.value||"").split(/\r?\n/).map(s=>s.trim()); }catch(_){ return []; } })(),
     technician:qs("#technicianName").value,
     techPhone: qs("#technicianPhone").value,
+    cleanDate: (qs("#cleanDate")?.value || ""),
     cleanTime: qs("#cleanFull").textContent,
     otherNotes:qs("#otherNotes").value,
     items, total: (function(){ try{ let sum=0; qsa("#quoteTable tbody tr").forEach(tr=>{ const v=parseInt(tr.querySelector(".subtotal")?.textContent||"0",10); sum+=isNaN(v)?0:v; }); return String(sum);}catch(_){return "0";} })()
@@ -818,7 +900,7 @@ function applyReadOnlyData(data){
   qs("#customerName").value   = data.customer  || "";
   qs("#customerPhone").value  = data.phone     || "";
   // 服務地址：支援舊版（單一字串/多行）與新版（array）
-  try{ setAddressesFromData(data.address || ""); }catch(_){
+  try{ setAddressesFromData(data.address || "", data.addressSlots || ""); }catch(_){
     // fallback：僅寫入 hidden textarea
     const addr = data.address;
     const hidden = qs("#customerAddress");
@@ -828,19 +910,27 @@ qs("#technicianName").value = data.technician|| "";
   qs("#technicianPhone").value= data.techPhone || "";
   (function(){
     const cf = qs("#cleanFull");
-    const s = data.cleanTime || "尚未選擇";
-    const m = s.match(/^(\d{4}\/\d{2}\/\d{2}（[^）]+）)\s*(上午|下午)?\s*([0-2]\d:[0-5]\d)/);
-    if (m) {
-      const datePart = m[1];
-      let [hour, minute] = m[3].split(":").map(Number);
-      let displayHour = hour % 12 || 12;
-      let displayTime = `${displayHour}:${String(minute).padStart(2, "0")}`;
-      const timePart = `${m[2] ? m[2] + ' ' : ''}${displayTime} 開始`;
-      cf.innerHTML = `<span class="cf-date">${datePart}</span><span class="cf-time">${timePart}</span>`;
-    } else {
-      cf.textContent = s;
+    if (!cf) return;
+
+    // 新版：cleanDate + addressSlots（方案B）
+    if (data.cleanDate || data.addressSlots){
+      // 先把地址渲染好，再依 hidden slots 合成
+      const dv = String(data.cleanDate || "");
+      const slotArr = Array.isArray(data.addressSlots) ? data.addressSlots : [];
+      // 同步 hidden（避免後續摘要/寄信用到）
+      try{ if(qs("#cleanDate")) qs("#cleanDate").value = dv; }catch(_){}
+      try{ if(qs("#customerAddressSlots")) qs("#customerAddressSlots").value = slotArr.map(v=>String(v||"")).join("\n"); }catch(_){}
+      // 合成顯示
+      try{ updateCleanFull(); }catch(_){
+        cf.textContent = (data.cleanTime || "尚未選擇");
+      }
+      return;
     }
-  })();
+
+    // 舊版：直接顯示 cleanTime 字串
+    const s = data.cleanTime || "尚未選擇";
+    cf.textContent = s;
+  })();;
   (function(){
     const row = document.querySelector('#cleanFullBox .row');
     if (row) row.style.display = 'none';

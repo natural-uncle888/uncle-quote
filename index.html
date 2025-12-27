@@ -318,6 +318,13 @@ html, body { overflow-x: hidden; }
   .address-row .addr-remove-mobile{padding:.2rem .4rem;}
   .address-row .address-input{width:100%;}
 }
+
+/* 摘要卡：服務地址支援換行顯示 */
+#summaryArea{white-space:pre-line;}
+/* 摘要卡：預約時間支援換行顯示（多地址時段） */
+#summaryDate{white-space:pre-line;}
+/* 服務執行資訊：完整預約資訊支援換行顯示 */
+#cleanFull{white-space:pre-line;display:inline-block;}
 </style>
 
 <style>
@@ -792,6 +799,7 @@ html, body { overflow-x: hidden; }
 
         <!-- 隱藏欄位：維持與既有程式相容（以換行分隔多地址） -->
         <textarea class="form-control d-none" id="customerAddress" rows="3"></textarea>
+        <textarea class="form-control d-none" id="customerAddressSlots" rows="3"></textarea>
 
         <div class="form-text">同一筆報價需到不同地點服務時，請逐筆新增地址並可直接拖曳排序（滑鼠/手機皆可）。</div>
       </div>
@@ -831,10 +839,11 @@ html, body { overflow-x: hidden; }
           </div>
         </div>
         <div class="row g-2 mt-2 mt-sm-0 flex-shrink-0" style="min-width:220px;">
-          <div class="col-6">
+          <div class="col-12">
             <input class="form-control" id="cleanDate" type="date"/>
+            <div class="form-text mt-1">各地址時間請在「服務地址」每一筆地址下方選擇。</div>
           </div>
-          <div class="col-6">
+          <div class="col-6 d-none">
             <input class="form-control" id="cleanTime" type="time"/>
           </div>
         </div>

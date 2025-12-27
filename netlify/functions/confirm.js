@@ -72,6 +72,12 @@ async function maybeSendEmail(payload, siteBase){
 }
 
 /* ======================= HTML Template（行動裝置優化） ======================= */
+function formatScheduleHtml(s){
+  const raw = String(s || '').trim();
+  if (!raw) return '（尚未排定）';
+  return raw.split(/\r?\n/).map(esc).join('<br>');
+}
+
 function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 function formatAddress(addr){
@@ -133,7 +139,7 @@ function buildConfirmHtml(p, siteBase){
               <p style="margin:0 0 6px;"><strong>客戶名稱：</strong>${esc(p.customer)}</p>
               <p style="margin:0 0 6px;"><strong>電話：</strong>${esc(p.phone)}</p>
               <p style="margin:0 0 6px;"><strong>地址：</strong>${formatAddress(p.address)}</p>
-              <p style="margin:0 0 6px;"><strong>預約時間：</strong>${esc(p.cleanTime)}</p>
+              <p style="margin:0 0 6px;"><strong>預約時間：</strong>${formatScheduleHtml(p.cleanTime)}</p>
               <p style="margin:0 0 14px;"><strong>技師：</strong>${esc(p.technician)}（${esc(p.techPhone)}）</p>
 
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;font-size:15px;">
