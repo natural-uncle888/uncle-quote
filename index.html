@@ -292,20 +292,21 @@ html, body { overflow-x: hidden; }
 .sortable-ghost{opacity:.35;}
 .sortable-chosen{background:rgba(13,110,253,.05);}
 
-/* 服務地址多列輸入：手機避免按鈕擋住 */
+/* 服務地址多列輸入：手機優化（拖曳＋刪除在同一行工具列） */
 .address-row{border:1px solid #dfe7f1;background:#fff;border-radius:.75rem;padding:.5rem;}
-.address-row .addr-num{min-width:46px;}
+.address-row .addr-num{min-width:46px;display:inline-flex;justify-content:center;align-items:center;border:1px solid #dee2e6;}
 .address-row .address-input{min-width:0;}
+.address-row .addr-remove-mobile{display:none;} /* 預設：桌機不顯示（桌機用右側按鈕列） */
+
 @media (max-width:576px){
-  .address-row .addr-actions{width:100%; justify-content:flex-end;}
-  /* 手機上隱藏上下箭頭，避免擋住輸入與節省空間 */
-  .address-row .addr-up,
-  .address-row .addr-down{display:none !important;}
-  /* 讓地址輸入區更寬一些 */
+  /* 手機：隱藏右側按鈕列（避免擋住輸入），改用上方工具列（拖曳＋刪除） */
+  .address-row .addr-actions{display:none !important;}
+  .address-row .addr-remove-mobile{display:inline-flex !important;}
   .address-row .addr-num{min-width:38px;}
   .address-row .addr-handle{padding:.25rem .45rem;}
+  .address-row .addr-toolbar{width:100%;}
+  .address-row .address-input{width:100%;}
 }
-
 </style>
 <style>
   /* 已作廢視覺加強 */

@@ -139,16 +139,19 @@ function addAddressRow(value){
   const row = document.createElement("div");
   row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
   const safeVal = String(value||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  row.innerHTML = `
-    <div class="addr-main d-flex align-items-center gap-2 flex-grow-1">
-      <span class="badge text-bg-light addr-num" style="min-width:46px;display:inline-flex;justify-content:center;align-items:center;border:1px solid #dee2e6;">1</span>
-      <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
-      <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+    row.innerHTML = `
+    <div class="addr-main d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-grow-1">
+      <div class="addr-toolbar d-flex align-items-center gap-2 flex-shrink-0">
+        <span class="badge text-bg-light addr-num">1</span>
+        <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
+        <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-mobile" type="button" title="刪除" aria-label="刪除地址">✕</button>
+      </div>
+      <input type="text" class="form-control address-input flex-grow-1" placeholder="請輸入服務地址" value="${safeVal}">
     </div>
     <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
-      <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上">↑</button>
-      <button class="btn btn-outline-secondary btn-sm addr-down" type="button" title="往下">↓</button>
-      <button class="btn btn-outline-danger btn-sm addr-remove" type="button" title="刪除">✕</button>
+      <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上" aria-label="往上移動">↑</button>
+      <button class="btn btn-outline-secondary btn-sm addr-down" type="button" title="往下" aria-label="往下移動">↓</button>
+      <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-desktop" type="button" title="刪除" aria-label="刪除地址">✕</button>
     </div>
   `;
   list.appendChild(row);
@@ -173,14 +176,21 @@ function setAddressesFromData(addr){
     const row = document.createElement("div");
     row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
     const safeVal = String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    row.innerHTML = `
-    <span class="input-group-text addr-num" style="min-width:46px;justify-content:center;">1</span>
-    <button class="btn btn-outline-secondary addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
-    <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
-    <button class="btn btn-outline-secondary addr-up" type="button" title="往上">↑</button>
-    <button class="btn btn-outline-secondary addr-down" type="button" title="往下">↓</button>
-    <button class="btn btn-outline-danger addr-remove" type="button" title="刪除">✕</button>
-  `;
+        row.innerHTML = `
+      <div class="addr-main d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-grow-1">
+        <div class="addr-toolbar d-flex align-items-center gap-2 flex-shrink-0">
+          <span class="badge text-bg-light addr-num">1</span>
+          <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
+          <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-mobile" type="button" title="刪除" aria-label="刪除地址">✕</button>
+        </div>
+        <input type="text" class="form-control address-input flex-grow-1" placeholder="請輸入服務地址" value="${safeVal}">
+      </div>
+      <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
+        <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上" aria-label="往上移動">↑</button>
+        <button class="btn btn-outline-secondary btn-sm addr-down" type="button" title="往下" aria-label="往下移動">↓</button>
+        <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-desktop" type="button" title="刪除" aria-label="刪除地址">✕</button>
+      </div>
+    `;
     list.appendChild(row);
   });
 
