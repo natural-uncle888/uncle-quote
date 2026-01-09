@@ -682,6 +682,52 @@ function applyMobileLabels(){
 }
 qs("#quoteTable tbody")?.addEventListener("change", (e)=>{
   const t = e.target;
+
+  // 自訂：加價項目可新增
+  if (t.classList.contains("service") && t.value === "__custom_surcharge__"){
+    const name = (prompt("請輸入要新增的加價項目名稱：") || "").trim();
+    const sel = t;
+    if (!name){
+      sel.value = "";
+      return;
+    }
+    // 避免重複：若已存在同名 option 直接選取
+    const existing = Array.from(sel.options).find(o => (o.value || o.textContent || "").trim() === name);
+    if (existing){
+      sel.value = existing.value || existing.textContent.trim();
+    } else {
+      // 插入到「加價項目」群組中（放在「＋新增加價項目…」前面）
+      const og = Array.from(sel.querySelectorAll('optgroup')).find(g => g.label === "加價項目");
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      if (og){
+        const addOpt = Array.from(og.querySelectorAll('option')).find(o => o.value === "__custom_surcharge__");
+        if (addOpt) og.insertBefore(opt, addOpt);
+        else og.appendChild(opt);
+      } else {
+        sel.appendChild(opt);
+      }
+      sel.value = name;
+    }
+
+    // 自訂加價項目時，補充說明預設選「其他」（若存在）
+    const row = sel.closest("tr");
+    const noteSel = row?.querySelector(".option");
+    if (noteSel && Array.from(noteSel.options).some(o => (o.value || o.textContent) === "其他")){
+      noteSel.value = "其他";
+    }
+
+    // 讓價格可手填（不套用固定定價）
+    const rowPrice = sel.closest("tr")?.querySelector(".price");
+    if (rowPrice){
+      rowPrice.dataset.override = "true";
+      if (!rowPrice.value) rowPrice.value = "0";
+    }
+    updateTotals();
+    return;
+  }
+
   if(t.classList.contains("service") || t.classList.contains("option") || t.classList.contains("qty")){
     const rowPrice = t.closest("tr").querySelector(".price");
     if(rowPrice && rowPrice.dataset.override) delete rowPrice.dataset.override;
@@ -715,6 +761,7 @@ qs("#addRow")?.addEventListener("click", ()=>{
           <option value="臭氧殺菌">臭氧殺菌</option>
         </optgroup>
         <optgroup label="加價項目">
+    <option value="__custom_surcharge__">＋新增加價項目…</option>
           <option value="變形金剛機型">變形金剛機型</option>
           <option value="一體式水盤機型">一體式水盤機型</option>
           <option value="超長費用">超長費用</option>
@@ -735,7 +782,8 @@ qs("#addRow")?.addEventListener("click", ()=>{
           <option>冷氣防霉處理（抑菌噴劑）</option>
           <option>高臭氧殺菌30分鐘</option>
           <option>加購價</option>
-        </optgroup>
+            <option>其他</option>
+  </optgroup>
         <optgroup label="坪數 / 衛浴數">
           <option>無廚一衛</option>
           <option>一廚一衛</option>
