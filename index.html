@@ -699,6 +699,88 @@ html, body { overflow-x: hidden; }
   .nu-modal__card{ margin:8vh auto 0; border-radius:14px }
   .nu-btn{ flex:1 } .nu-modal__footer{ gap:8px }
 }</style>
+
+<style>
+/* ===== 新增加價項目 Dialog（美化版） ===== */
+.nice-dialog{
+  border:none;
+  padding:0;
+  background:transparent;
+  max-width:520px;
+  width:calc(100% - 32px);
+}
+.nice-dialog::backdrop{
+  background:rgba(15,23,42,0.55);
+  backdrop-filter:blur(2px);
+}
+.nice-dialog__card{
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 20px 60px rgba(0,0,0,0.25);
+  overflow:hidden;
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;
+}
+.nice-dialog__header{
+  padding:18px 20px 12px;
+  border-bottom:1px solid #eef2f7;
+}
+.nice-dialog__title{
+  margin:0;
+  font-size:18px;
+  font-weight:700;
+  color:#0f172a;
+}
+.nice-dialog__desc{
+  margin:6px 0 0;
+  font-size:13px;
+  color:#64748b;
+}
+.nice-dialog__body{padding:16px 20px 8px;}
+.nice-dialog__label{
+  display:block;
+  font-size:13px;
+  color:#334155;
+  margin-bottom:8px;
+  font-weight:600;
+}
+.nice-dialog__input{
+  width:100%;
+  border:1px solid #cbd5e1;
+  border-radius:12px;
+  padding:12px;
+  font-size:14px;
+  outline:none;
+}
+.nice-dialog__input:focus{
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,0.18);
+}
+.nice-dialog__error{
+  min-height:18px;
+  margin-top:8px;
+  font-size:12px;
+  color:#dc2626;
+}
+.nice-dialog__footer{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding:12px 20px 18px;
+  border-top:1px solid #eef2f7;
+}
+.nice-dialog__btn{
+  border:none;
+  border-radius:12px;
+  padding:10px 14px;
+  font-size:14px;
+  cursor:pointer;
+}
+.nice-dialog__btn--primary{background:#2563eb;color:#fff;}
+.nice-dialog__btn--primary:hover{filter:brightness(0.96);}
+.nice-dialog__btn--ghost{background:#f1f5f9;color:#0f172a;}
+.nice-dialog__btn--ghost:hover{filter:brightness(0.98);}
+</style>
+
 </head>
 <body>
 <header class="quote-header"><h1 class="visually-hidden">自然大叔 線上報價單</h1></header>
@@ -901,10 +983,10 @@ html, body { overflow-x: hidden; }
     <option value="臭氧殺菌">臭氧殺菌</option>
   </optgroup>
   <optgroup label="加價項目">
-    <option value="__custom_surcharge__">＋新增加價項目…</option>
     <option value="變形金剛機型">變形金剛機型</option>
     <option value="一體式水盤機型">一體式水盤機型</option>
     <option value="超長費用">超長費用</option>
+    <option value="__custom_surcharge__">新增項目</option>
   </optgroup>
 </select>
 
@@ -933,6 +1015,7 @@ html, body { overflow-x: hidden; }
     <option>一廚四衛</option>
   </optgroup>
 </select>
+<input type="text" class="form-control option-other-input mt-1" placeholder="請輸入其他說明（可留空）" style="display:none;">
 
 </td>
 <td><input class="form-control qty" min="1" type="number" value="1"/></td>
@@ -1474,5 +1557,34 @@ html, body { overflow-x: hidden; }
     </div>
   </div>
 </div>
+
+<!-- 新增加價項目 Dialog（美化版） -->
+<dialog id="addSurchargeDialog" class="nice-dialog">
+  <form method="dialog" class="nice-dialog__card">
+    <div class="nice-dialog__header">
+      <h3 class="nice-dialog__title">新增加價項目</h3>
+      <p class="nice-dialog__desc">請輸入要新增的加價項目名稱</p>
+    </div>
+
+    <div class="nice-dialog__body">
+      <label class="nice-dialog__label" for="addSurchargeInput">項目名稱</label>
+      <input
+        id="addSurchargeInput"
+        class="nice-dialog__input"
+        type="text"
+        placeholder="例如：高樓層搬運費"
+        maxlength="30"
+        autocomplete="off"
+      />
+      <div id="addSurchargeError" class="nice-dialog__error" aria-live="polite"></div>
+    </div>
+
+    <div class="nice-dialog__footer">
+      <button id="addSurchargeCancel" class="nice-dialog__btn nice-dialog__btn--ghost" value="cancel">取消</button>
+      <button id="addSurchargeOk" class="nice-dialog__btn nice-dialog__btn--primary" value="ok">確定</button>
+    </div>
+  </form>
+</dialog>
+
 </body>
 </html>

@@ -1,4 +1,70 @@
 
+function askCustomSurchargeName() {
+  const dialog = document.getElementById("addSurchargeDialog");
+  const input = document.getElementById("addSurchargeInput");
+  const error = document.getElementById("addSurchargeError");
+  const okBtn = document.getElementById("addSurchargeOk");
+  const cancelBtn = document.getElementById("addSurchargeCancel");
+
+  // Fallback for browsers without <dialog>
+  if (!dialog || typeof dialog.showModal !== "function") {
+    const name = (prompt("請輸入要新增的加價項目名稱：") || "").trim();
+    return Promise.resolve(name || null);
+  }
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      dialog.removeEventListener("close", onClose);
+      dialog.removeEventListener("cancel", onCancel);
+    };
+
+    const onCancel = (e) => {
+      // ESC cancel
+      e.preventDefault();
+      input.value = "";
+      error.textContent = "";
+      dialog.close("cancel");
+    };
+
+    const onClose = () => {
+      const v = (input.value || "").trim();
+      cleanup();
+      if (dialog.returnValue !== "ok") return resolve(null);
+      return resolve(v || null);
+    };
+
+    input.value = "";
+    error.textContent = "";
+
+    okBtn.onclick = (ev) => {
+      const v = (input.value || "").trim();
+      if (!v) {
+        ev.preventDefault();
+        error.textContent = "請輸入項目名稱。";
+        input.focus();
+        return;
+      }
+      if (v.length > 30) {
+        ev.preventDefault();
+        error.textContent = "項目名稱請勿超過 30 個字。";
+        input.focus();
+        return;
+      }
+      error.textContent = "";
+      dialog.close("ok");
+    };
+
+    cancelBtn.onclick = () => dialog.close("cancel");
+
+    dialog.addEventListener("cancel", onCancel);
+    dialog.addEventListener("close", onClose);
+
+    dialog.showModal();
+    setTimeout(() => input.focus(), 0);
+  });
+}
+
+
 /* ===== UI helpers for cancelled state ===== */
 function showCancelledUI(reason, timeText){
   try{
@@ -307,7 +373,7 @@ function initAddressUI(){
   });
 
   // 行動裝置的 <input type="time"> 常只會觸發 change，不一定會觸發 input
-  list.addEventListener("change", (e)=>{
+  list.addEventListener("change", async (e)=>{
     if (e.target && e.target.classList.contains("address-time")){
       updateAddrTimePeriod(e.target.closest(".address-row"));
       syncHiddenAddressFromUI();
@@ -680,12 +746,12 @@ function applyMobileLabels(){
     Array.from(tr.children).forEach((td, i)=> td.setAttribute('data-label', labels[i] || '') );
   });
 }
-qs("#quoteTable tbody")?.addEventListener("change", (e)=>{
+qs("#quoteTable tbody")?.addEventListener("change", async (e)=>{
   const t = e.target;
 
   // 自訂：加價項目可新增
   if (t.classList.contains("service") && t.value === "__custom_surcharge__"){
-    const name = (prompt("請輸入要新增的加價項目名稱：") || "").trim();
+    const name = await askCustomSurchargeName();
     const sel = t;
     if (!name){
       sel.value = "";
@@ -716,6 +782,11 @@ qs("#quoteTable tbody")?.addEventListener("change", (e)=>{
     const noteSel = row?.querySelector(".option");
     if (noteSel && Array.from(noteSel.options).some(o => (o.value || o.textContent) === "其他")){
       noteSel.value = "其他";
+      const otherInput = row?.querySelector(".option-other-input");
+      if (otherInput){
+        otherInput.style.display = "block";
+      }
+
     }
 
     // 讓價格可手填（不套用固定定價）
@@ -728,7 +799,22 @@ qs("#quoteTable tbody")?.addEventListener("change", (e)=>{
     return;
   }
 
-  if(t.classList.contains("service") || t.classList.contains("option") || t.classList.contains("qty")){
+  
+  // 「補充說明」選到「其他」時，顯示可手動輸入的說明欄位
+  if (t.classList.contains("option")){
+    const row = t.closest("tr");
+    const otherInput = row?.querySelector(".option-other-input");
+    if (otherInput){
+      if ((t.value || "").trim() === "其他"){
+        otherInput.style.display = "block";
+      } else {
+        otherInput.style.display = "none";
+        otherInput.value = "";
+      }
+    }
+  }
+
+if(t.classList.contains("service") || t.classList.contains("option") || t.classList.contains("qty")){
     const rowPrice = t.closest("tr").querySelector(".price");
     if(rowPrice && rowPrice.dataset.override) delete rowPrice.dataset.override;
     updateTotals();
@@ -792,6 +878,7 @@ qs("#addRow")?.addEventListener("click", ()=>{
           <option>一廚四衛</option>
         </optgroup>
       </select>
+      <input type="text" class="form-control option-other-input mt-1" placeholder="請輸入其他說明（可留空）" style="display:none;">
     </td>
     </td>
     <td><input type="number" class="form-control qty" value="1" min="1" /></td>
@@ -940,7 +1027,7 @@ function collectShareData(){
   qsa("#quoteTable tbody tr").forEach(tr=>{
     items.push({
       service: tr.querySelector(".service")?.value || "",
-      option:  tr.querySelector(".option")?.value  || "",
+      option:  (function(){ const sel=tr.querySelector(".option"); const v=(sel?.value||"").trim(); if(v==="其他"){ const t=(tr.querySelector(".option-other-input")?.value||"").trim(); return t!==""?t:"其他"; } return v; })(),
       qty:     tr.querySelector(".qty")?.value     || "1",
       price:   tr.querySelector(".price")?.value   || "0",
       subtotal:tr.querySelector(".subtotal")?.textContent || "0",
