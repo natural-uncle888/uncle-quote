@@ -152,6 +152,11 @@ window.__QUOTE_CANCELLED__ = false;
    服務地址：多欄位（可新增 / 刪除 / 排序）
    - UI：#addressList + #addAddressBtn + #clearAddressesBtn
    - Hidden：#customerAddress（以換行分隔，維持既有序列化相容）
+   - Hidden：#customerAddressSlots（每行對應一個地址的排程）
+     - 舊版：僅存時間，例如 "09:00"
+     - 新版：支援同一地址多筆日期/時間，格式：
+         "2026-03-03@09:00|2026-03-10@13:00"
+       若日期為空（或省略），則視為沿用 #cleanDate 的預設日期
 ===================== */
 function parseAddressText(raw){
   const s = String(raw == null ? "" : raw);
@@ -187,11 +192,63 @@ function timeWithPeriod(t){
   return `${period} ${hh}:${mm}`;
 }
 
-function updateAddrTimePeriod(row){
+function getDefaultCleanDate(){
+  try{ return String(qs("#cleanDate")?.value || "").trim(); }catch(_){ return ""; }
+}
+
+// slots 編碼/解碼：支援多筆日期/時間
+function decodeScheduleLine(line){
+  const raw = String(line || "").trim();
+  if (!raw) return [{ date:"", time:"" }];
+
+  // 新版：含 | 或 @
+  if (raw.includes("|") || raw.includes("@")){
+    const parts = raw.split("|").map(s=>String(s||"").trim()).filter(v=>v!=="");
+    const out = [];
+    parts.forEach(p=>{
+      if (p.includes("@")){
+        const idx = p.indexOf("@");
+        const d = String(p.slice(0, idx) || "").trim();
+        const t = String(p.slice(idx+1) || "").trim();
+        out.push({ date: d, time: legacySlotToTime(t) });
+      } else {
+        out.push({ date:"", time: legacySlotToTime(p) });
+      }
+    });
+    return out.length ? out : [{ date:"", time:"" }];
+  }
+
+  // 舊版：時間
+  return [{ date:"", time: legacySlotToTime(raw) }];
+}
+function encodeSchedules(schedules){
+  const list = Array.isArray(schedules) ? schedules : [];
+  const dv = getDefaultCleanDate();
+  const normalized = (list.length ? list : [{date:"", time:""}]).map(sc=>{
+    const d = String(sc?.date || "").trim();
+    const t = legacySlotToTime(String(sc?.time || "").trim());
+    // 若日期等於預設日期 → 省略日期（沿用 cleanDate）
+    const dOut = (d && dv && d === dv) ? "" : d;
+    return { date: dOut, time: t };
+  });
+
+  // 移除完全空白但保留至少一筆
+  const nonEmpty = normalized.filter(x => (x.date || x.time));
+  const final = nonEmpty.length ? nonEmpty : [{date:"", time:""}];
+
+  // 只有 1 筆且沒有日期 → 盡量沿用舊版格式（僅時間）
+  if (final.length === 1 && !final[0].date){
+    return final[0].time || "";
+  }
+
+  return final.map(x => `${x.date||""}@${x.time||""}`).join("|");
+}
+
+function updateSchedulePeriod(srow){
   try{
-    if (!row) return;
-    const input = row.querySelector(".address-time");
-    const badge = row.querySelector(".addr-time-period");
+    if (!srow) return;
+    const input = srow.querySelector(".addr-schedule-time");
+    const badge = srow.querySelector(".addr-schedule-period");
     if (!input || !badge) return;
     const raw = String(input.value || "").trim();
     const m = raw.match(/^\s*(\d{1,2})\s*:\s*(\d{2})\s*$/);
@@ -207,10 +264,7 @@ function updateAddrTimePeriod(row){
   }catch(_){}
 }
 
-
 function getAddressListEl(){ return qs("#addressList"); }
-
-// 地址時間（方案B：共用日期＋每地址選擇時間）
 
 function renumberAddressRows(){
   const list = getAddressListEl();
@@ -229,25 +283,92 @@ function renumberAddressRows(){
   });
 }
 
+function ensureAtLeastOneScheduleRow(addrRow){
+  const box = addrRow?.querySelector(".addr-schedules");
+  if (!box) return;
+  const rows = box.querySelectorAll(".addr-schedule");
+  if (rows.length === 0){
+    addScheduleRow(addrRow, "", "");
+  }
+}
+
+function addScheduleRow(addrRow, dateVal, timeVal){
+  if (!addrRow) return null;
+  const box = addrRow.querySelector(".addr-schedules");
+  if (!box) return null;
+
+  const dv = getDefaultCleanDate();
+  const d = String(dateVal || "").trim();
+  const t = legacySlotToTime(String(timeVal || "").trim());
+
+  const srow = document.createElement("div");
+  srow.className = "addr-schedule d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2";
+  const safeDate = String(d || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const safeTime = String(t || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+
+  srow.innerHTML = `
+    <input type="date" class="form-control form-control-sm addr-schedule-date" aria-label="選擇此地址的日期" value="${safeDate}">
+    <div class="d-flex align-items-center gap-2">
+      <span class="badge text-bg-light border text-dark addr-schedule-period d-none" aria-hidden="true"></span>
+      <input type="time" class="form-control form-control-sm addr-schedule-time" aria-label="選擇此地址的時間" value="${safeTime}">
+    </div>
+    <button class="btn btn-outline-danger btn-sm addr-schedule-remove" type="button" title="刪除此筆日期/時間" aria-label="刪除此筆日期/時間">✕</button>
+  `;
+
+  box.appendChild(srow);
+
+  // 若未指定日期，且已有預設日期，則先顯示預設日期但不寫入 slots（encode 時會省略）
+  try{
+    const di = srow.querySelector(".addr-schedule-date");
+    if (di && !di.value && dv){
+      di.value = dv;
+      di.dataset.inherited = "1";
+    }
+  }catch(_){}
+
+  // 套用時間
+  try{ const ti = srow.querySelector(".addr-schedule-time"); if (ti){ ti.value = t || ""; } }catch(_){}
+
+  updateSchedulePeriod(srow);
+  return srow;
+}
+
 function syncHiddenAddressFromUI(){
   const hidden = qs("#customerAddress");
   const hiddenSlots = qs("#customerAddressSlots");
   const list = getAddressListEl();
   if (!hidden || !list) return;
+
   const addrs = [];
   const slots = [];
+
   Array.from(list.querySelectorAll(".address-row")).forEach(row=>{
     const addr = String(row.querySelector(".address-input")?.value || "").trim();
-    const slot = String(row.querySelector(".address-time")?.value || "");
-    if (addr){
-      addrs.push(addr);
-      slots.push(slot);
+    if (!addr) return;
+
+    const schedules = [];
+    const srows = Array.from(row.querySelectorAll(".addr-schedule"));
+    if (srows.length === 0){
+      schedules.push({ date:"", time:"" });
+    } else {
+      srows.forEach(sr=>{
+        const di = sr.querySelector(".addr-schedule-date");
+        const ti = sr.querySelector(".addr-schedule-time");
+        const dRaw = String(di?.value || "").trim();
+        const tRaw = legacySlotToTime(String(ti?.value || "").trim());
+        schedules.push({ date: dRaw, time: tRaw });
+      });
     }
+
+    addrs.push(addr);
+    slots.push(encodeSchedules(schedules));
   });
+
   hidden.value = addrs.join("\n");
   if (hiddenSlots) hiddenSlots.value = slots.join("\n");
-  try{ updateCleanFull(); }catch(_){ }
-  try{ updateSummaryCard(); }catch(_){ }
+
+  try{ updateCleanFull(); }catch(_){}
+  try{ updateSummaryCard(); }catch(_){}
 }
 
 function ensureAtLeastOneAddressRow(){
@@ -259,28 +380,33 @@ function ensureAtLeastOneAddressRow(){
   }
 }
 
-function addAddressRow(value, slotValue){
+function addAddressRow(value, scheduleLine){
   const list = getAddressListEl();
   if (!list) return null;
+
   const row = document.createElement("div");
   row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
   const safeVal = String(value||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    const safeTime = String(legacySlotToTime(slotValue||"")).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    row.innerHTML = `
+  row.innerHTML = `
     <div class="addr-main d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-grow-1">
       <div class="addr-toolbar d-flex align-items-center gap-2 flex-shrink-0">
         <span class="badge text-bg-light addr-num">1</span>
         <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
         <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-mobile" type="button" title="刪除" aria-label="刪除地址">✕</button>
       </div>
+
       <div class="addr-fields d-flex flex-column gap-2 flex-grow-1">
         <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
-        <div class="addr-time-row d-flex align-items-center gap-2">
-          <span class="badge text-bg-light border text-dark addr-time-period d-none" aria-hidden="true"></span>
-          <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+
+        <div class="addr-schedules vstack gap-2"></div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-primary btn-sm addr-schedule-add" type="button" aria-label="新增日期/時間">＋ 新增日期/時間</button>
+          <span class="form-text small text-muted">（日期可不同；若同一天則維持預設日期即可）</span>
         </div>
       </div>
     </div>
+
     <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
       <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上" aria-label="往上移動">↑</button>
       <button class="btn btn-outline-secondary btn-sm addr-down" type="button" title="往下" aria-label="往下移動">↓</button>
@@ -288,9 +414,12 @@ function addAddressRow(value, slotValue){
     </div>
   `;
   list.appendChild(row);
-  // 套用時間
-  try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = legacySlotToTime(slotValue || ''); } }catch(_){ }
-  updateAddrTimePeriod(row);
+
+  // 初始排程
+  const schedules = decodeScheduleLine(scheduleLine || "");
+  schedules.forEach(sc=> addScheduleRow(row, sc.date, sc.time));
+  ensureAtLeastOneScheduleRow(row);
+
   renumberAddressRows();
   syncHiddenAddressFromUI();
   return row;
@@ -308,27 +437,31 @@ function setAddressesFromData(addr, slotsArr){
   list.innerHTML = "";
   const finalLines = parseAddressText(hidden.value);
   if (finalLines.length === 0) finalLines.push("");
-  // 先不要在 addAddressRow 裡 sync（避免重複），這裡批次加
+
   finalLines.forEach((v, idx)=>{
     const row = document.createElement("div");
     row.className = "address-row d-flex flex-column flex-sm-row gap-2 align-items-stretch";
     const safeVal = String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-    const safeTime = String(legacySlotToTime(slotLines[idx] || "")).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-        row.innerHTML = `
+    row.innerHTML = `
       <div class="addr-main d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 flex-grow-1">
         <div class="addr-toolbar d-flex align-items-center gap-2 flex-shrink-0">
           <span class="badge text-bg-light addr-num">1</span>
           <button class="btn btn-outline-secondary btn-sm addr-handle" type="button" title="拖曳排序" aria-label="拖曳排序">⋮⋮</button>
           <button class="btn btn-outline-danger btn-sm addr-remove addr-remove-mobile" type="button" title="刪除" aria-label="刪除地址">✕</button>
         </div>
+
         <div class="addr-fields d-flex flex-column gap-2 flex-grow-1">
-        <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
-        <div class="addr-time-row d-flex align-items-center gap-2">
-          <span class="badge text-bg-light border text-dark addr-time-period d-none" aria-hidden="true"></span>
-          <input type="time" class="form-control form-control-sm address-time" aria-label="選擇此地址的清洗時間" value="${safeTime}">
+          <input type="text" class="form-control address-input" placeholder="請輸入服務地址" value="${safeVal}">
+
+          <div class="addr-schedules vstack gap-2"></div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary btn-sm addr-schedule-add" type="button" aria-label="新增日期/時間">＋ 新增日期/時間</button>
+            <span class="form-text small text-muted">（日期可不同；若同一天則維持預設日期即可）</span>
+          </div>
         </div>
       </div>
-      </div>
+
       <div class="addr-actions d-flex align-items-center justify-content-end gap-2">
         <button class="btn btn-outline-secondary btn-sm addr-up" type="button" title="往上" aria-label="往上移動">↑</button>
         <button class="btn btn-outline-secondary btn-sm addr-down" type="button" title="往下" aria-label="往下移動">↓</button>
@@ -336,9 +469,10 @@ function setAddressesFromData(addr, slotsArr){
       </div>
     `;
     list.appendChild(row);
-    try{ const sel = row.querySelector('.address-time'); if (sel){ sel.value = legacySlotToTime(slotLines[idx] || ''); } }catch(_){ }
-    // 初始化每列的 上午/下午/晚上 徽章（避免行動裝置只觸發 change 而未觸發 input）
-    updateAddrTimePeriod(row);
+
+    const schedules = decodeScheduleLine(slotLines[idx] || "");
+    schedules.forEach(sc=> addScheduleRow(row, sc.date, sc.time));
+    ensureAtLeastOneScheduleRow(row);
   });
 
   renumberAddressRows();
@@ -350,7 +484,7 @@ function setAddressUIReadOnly(isReadonly){
   if (!list) return;
   list.querySelectorAll("button").forEach(b => b.disabled = !!isReadonly);
   list.querySelectorAll("input, select, textarea").forEach(el => el.disabled = !!isReadonly);
-const addBtn = qs("#addAddressBtn"); if (addBtn) addBtn.disabled = !!isReadonly;
+  const addBtn = qs("#addAddressBtn"); if (addBtn) addBtn.disabled = !!isReadonly;
   const clearBtn = qs("#clearAddressesBtn"); if (clearBtn) clearBtn.disabled = !!isReadonly;
 }
 
@@ -364,29 +498,70 @@ function initAddressUI(){
 
   // 動態事件（委派）
   list.addEventListener("input", (e)=>{
-    if (e.target && (e.target.classList.contains("address-input") || e.target.classList.contains("address-time"))){
-      if (e.target.classList.contains("address-time")){
-        updateAddrTimePeriod(e.target.closest(".address-row"));
-      }
+    const t = e.target;
+    if (!t) return;
+
+    if (t.classList.contains("addr-schedule-time")){
+      updateSchedulePeriod(t.closest(".addr-schedule"));
+    }
+    if (t.classList.contains("addr-schedule-date")){
+      // 使用者手動修改日期後，不再視為 inherited
+      try{ delete t.dataset.inherited; }catch(_){}
+    }
+
+    if (
+      t.classList.contains("address-input") ||
+      t.classList.contains("addr-schedule-date") ||
+      t.classList.contains("addr-schedule-time")
+    ){
       syncHiddenAddressFromUI();
     }
   });
 
   // 行動裝置的 <input type="time"> 常只會觸發 change，不一定會觸發 input
-  list.addEventListener("change", async (e)=>{
-    if (e.target && e.target.classList.contains("address-time")){
-      updateAddrTimePeriod(e.target.closest(".address-row"));
+  list.addEventListener("change", (e)=>{
+    const t = e.target;
+    if (!t) return;
+    if (t.classList.contains("addr-schedule-time")){
+      updateSchedulePeriod(t.closest(".addr-schedule"));
       syncHiddenAddressFromUI();
+      return;
+    }
+    if (t.classList.contains("addr-schedule-date")){
+      try{ delete t.dataset.inherited; }catch(_){}
+      syncHiddenAddressFromUI();
+      return;
     }
   });
 
-list.addEventListener("click", (e)=>{
+  list.addEventListener("click", (e)=>{
     const btn = e.target && e.target.closest("button");
     if (!btn) return;
+    if (btn.disabled) return;
+
+    // 刪除排程
+    if (btn.classList.contains("addr-schedule-remove")){
+      const srow = btn.closest(".addr-schedule");
+      const arow = btn.closest(".address-row");
+      if (srow) srow.remove();
+      if (arow) ensureAtLeastOneScheduleRow(arow);
+      syncHiddenAddressFromUI();
+      return;
+    }
+
+    // 新增排程
+    if (btn.classList.contains("addr-schedule-add")){
+      const arow = btn.closest(".address-row");
+      if (!arow) return;
+      const srow = addScheduleRow(arow, "", "");
+      try{ srow?.querySelector(".addr-schedule-date")?.focus(); }catch(_){}
+      syncHiddenAddressFromUI();
+      return;
+    }
+
+    // 地址列按鈕
     const row = btn.closest(".address-row");
     if (!row) return;
-
-    if (btn.disabled) return;
 
     if (btn.classList.contains("addr-remove")){
       row.remove();
@@ -413,7 +588,6 @@ list.addEventListener("click", (e)=>{
     }
   });
 
-
   // 拖曳排序（滑鼠 / 手機）
   // - 使用 SortableJS（由 index.html 載入）
   // - 若載入失敗，仍可用 ↑↓ 排序
@@ -431,6 +605,7 @@ list.addEventListener("click", (e)=>{
       });
     }
   }catch(_){}
+
   qs("#addAddressBtn")?.addEventListener("click", ()=>{
     const row = addAddressRow("", "");
     try{ row?.querySelector(".address-input")?.focus(); }catch(_){}
@@ -441,60 +616,141 @@ list.addEventListener("click", (e)=>{
     addAddressRow("", "");
     syncHiddenAddressFromUI();
   });
+
+  // 預設日期變更時：同步更新「沿用預設日期」的排程日期（僅對 inherited 生效）
+  qs("#cleanDate")?.addEventListener("change", ()=>{
+    const dv = getDefaultCleanDate();
+    if (!dv) { syncHiddenAddressFromUI(); return; }
+    try{
+      list.querySelectorAll(".addr-schedule-date").forEach(di=>{
+        if (di && di.dataset && di.dataset.inherited === "1"){
+          di.value = dv;
+        }
+      });
+    }catch(_){}
+    syncHiddenAddressFromUI();
+  });
 }
 
+
 /* =====================
-   預約時間合成
+   預約時間合成（支援：同一地址多筆日期/時間）
 ===================== */
-function updateCleanFull(){
-  const dv = qs("#cleanDate")?.value;
-  const list = getAddressListEl();
-  const rows = list ? Array.from(list.querySelectorAll(".address-row")) : [];
-  const slots = rows.map(r => String(r.querySelector(".address-time")?.value || ""));
-
-  // 日期格式
-  let dateText = "";
-  if (dv){
-    const dt = new Date(`${dv}T00:00:00`);
+function formatIsoDateWithWeek(iso){
+  const s = String(iso || "").trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  try{
+    const dt = new Date(`${s}T00:00:00`);
     const wd = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"][dt.getDay()];
-    const yyyy = dt.getFullYear();
-    const mm = String(dt.getMonth()+1).padStart(2,'0');
-    const dd = String(dt.getDate()).padStart(2,'0');
-    dateText = `${yyyy}/${mm}/${dd}（${wd}）`;
+    return `${m[1]}/${m[2]}/${m[3]}（${wd}）`;
+  }catch(_){
+    return `${m[1]}/${m[2]}/${m[3]}`;
   }
+}
 
-  // 依地址順序輸出時間（只針對有填地址的列）
+function resolveScheduleDate(iso, defaultIso){
+  const d = String(iso || "").trim();
+  const dv = String(defaultIso || "").trim();
+  return d || dv || "";
+}
+
+function updateCleanFull(){
+  const dv = getDefaultCleanDate();
+
+  // 服務地址 & slots（每行一筆地址）
   const addrHidden = qs("#customerAddress")?.value || "";
   const addrLines = addrHidden.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  const slotsHidden = qs("#customerAddressSlots")?.value || "";
-  const slotLines = slotsHidden.split(/\r?\n/).map(s=>s.trim());
 
-  const lines = [];
-  if (addrLines.length){
-    const n = addrLines.length;
-    for (let i=0;i<addrLines.length;i++){
-      const t0 = legacySlotToTime(slotLines[i] || "");
-      const t = timeWithPeriod(t0);
-      const label = t ? t : "時間待確認";
-      if (n === 1) lines.push(label);
-      else lines.push(`第${i+1}地址：${label}`);
-    }
-  }
+  const slotsHidden = qs("#customerAddressSlots")?.value || "";
+  const slotLines = slotsHidden.split(/\r?\n/); // 保留空字串，避免 index 對不上
 
   const cf = qs("#cleanFull");
   if (!cf) return;
 
-  if (!dateText && lines.length===0){
+  // 整理每地址排程
+  const perAddr = [];
+  const dateSet = new Set();
+
+  for (let i=0; i<addrLines.length; i++){
+    const schedulesRaw = decodeScheduleLine(slotLines[i] || "");
+    const schedules = schedulesRaw.map(sc=>{
+      const d = resolveScheduleDate(sc.date, dv);
+      const t = legacySlotToTime(sc.time || "");
+      if (d) dateSet.add(d);
+      return { date: d, time: t };
+    });
+    perAddr.push(schedules.length ? schedules : [{date:"", time:""}]);
+  }
+
+  // 若只有 1 個日期（所有排程都同一天） → 維持舊版展示（日期一行＋各地址時間）
+  const uniqDates = Array.from(dateSet).filter(Boolean);
+  const singleDate = (uniqDates.length === 1);
+  const topDateText = singleDate ? formatIsoDateWithWeek(uniqDates[0] || dv) : (dv ? formatIsoDateWithWeek(dv) : "");
+
+  const lines = [];
+
+  if (singleDate && topDateText){
+    // 舊版：日期一行
+    lines.push(topDateText);
+
+    // 時間（依地址順序）
+    if (addrLines.length){
+      const n = addrLines.length;
+      for (let i=0;i<addrLines.length;i++){
+        const schedules = perAddr[i] || [{date:"", time:""}];
+        const timeLabels = schedules.map(x=> timeWithPeriod(x.time) || "時間待確認").filter(Boolean);
+        const label = timeLabels.length ? timeLabels.join("、") : "時間待確認";
+        if (n === 1) lines.push(label);
+        else lines.push(`第${i+1}地址：${label}`);
+      }
+    }
+  } else {
+    // 多日期（或無法合併）
+    // 若有預設日期但仍多日期，就不放單一日期行，直接逐筆列出
+    if (!addrLines.length && dv){
+      lines.push(formatIsoDateWithWeek(dv));
+    }
+
+    if (addrLines.length){
+      const n = addrLines.length;
+      for (let i=0;i<addrLines.length;i++){
+        const schedules = perAddr[i] || [{date:"", time:""}];
+
+        // 只有一筆排程
+        if (schedules.length === 1){
+          const dText = schedules[0].date ? formatIsoDateWithWeek(schedules[0].date) : "日期待確認";
+          const tText = timeWithPeriod(schedules[0].time) || "時間待確認";
+          if (n === 1) lines.push(`${dText} ${tText}`.trim());
+          else lines.push(`第${i+1}地址：${dText} ${tText}`.trim());
+          continue;
+        }
+
+        // 多筆排程
+        if (n === 1) lines.push("同一地址多筆排程：");
+        else lines.push(`第${i+1}地址：`);
+
+        schedules.forEach(sc=>{
+          const dText = sc.date ? formatIsoDateWithWeek(sc.date) : "日期待確認";
+          const tText = timeWithPeriod(sc.time) || "時間待確認";
+          lines.push(`- ${dText} ${tText}`.trim());
+        });
+      }
+    }
+  }
+
+  if (!topDateText && lines.length === 0){
     cf.textContent = "尚未選擇";
     return;
   }
-  const out = [dateText || "日期待確認", ...lines].filter(Boolean).join("\n");
-  cf.textContent = out;
+
+  const out = lines.join("\n").trim();
+  cf.textContent = out || "尚未選擇";
   try{ updateSummaryCard(); }catch(_){}
 }
 qs("#cleanDate")?.addEventListener("change", updateCleanFull);
 qs("#cleanTime")?.addEventListener("change", updateCleanFull);
-
 /* =====================
    報價摘要卡同步
 ===================== */
@@ -1081,6 +1337,17 @@ function applyReadOnlyData(data){
   }
   qs("#customerName").value   = data.customer  || "";
   qs("#customerPhone").value  = data.phone     || "";
+
+  // 先同步預設日期與 slots（讓地址內的排程日期能顯示）
+  try{ if (qs("#cleanDate")) qs("#cleanDate").value = String(data.cleanDate || ""); }catch(_){}
+  try{
+    const slots = data.addressSlots;
+    const arr = Array.isArray(slots) ? slots.map(v=>String(v||""))
+              : (typeof slots === "string" ? slots.split(/\r?\n/).map(s=>s.trim()) : []);
+    const el = qs("#customerAddressSlots");
+    if (el) el.value = arr.join("\n");
+  }catch(_){}
+
   // 服務地址：支援舊版（單一字串/多行）與新版（array）
   try{ setAddressesFromData(data.address || "", data.addressSlots || ""); }catch(_){
     // fallback：僅寫入 hidden textarea
