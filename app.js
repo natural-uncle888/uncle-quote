@@ -1332,8 +1332,9 @@ function buildLineQuoteMessage(shareUrl){
       const isGift = String(it.service || '').trim() && Number(it.price || 0) === 0;
       return `・${name} x ${it.qty || 1}${isGift ? '（贈送）' : ''}`;
     });
-  const itemsText = mainItems.length ? `\n\n📌 📋 報價編號：${quoteNo}` : '';
-  return `${customer} 您好 😊\n這是您的到府清洗報價單，請您確認。\n若一切無誤，請直接回覆 「我同意此報價」，以利後續的安排事宜！${quoteNoLine}\n💰 本次報價：$${total}${giftLine}${itemsText}\n\n👉 點我查看報價單：\n${shareUrl}\n\n如有任何問題，歡迎直接回覆 LINE，謝謝您！\n— 自然大叔`;
+  const itemsText = mainItems.length ? `\n\n📌 服務項目：\n${mainItems.join('\n')}` : '';
+  const quoteNoLine = quoteNo ? `\n📋 報價編號：${quoteNo}` : '';
+  return `${customer} 您好 😊\n這是您的到府清洗報價單，請您確認。${quoteNoLine}\n💰 本次報價：$${total}${giftLine}${itemsText}\n\n👉 點我查看報價單：\n${shareUrl}\n\n如有任何問題，歡迎直接回覆 LINE，謝謝您！\n— 自然大叔`;
 }
 async function copyTextLineBasic(text, btn){
   try{
