@@ -982,6 +982,89 @@ html, body { overflow-x: hidden; }
 }
 </style>
 
+
+
+<style id="mobile-gift-title-final-fix">
+/* Final fix: restore mobile gift-service title and tighten bottom bar spacing */
+@media (max-width:576px){
+  #quoteTable tbody tr.gift-row{
+    position:relative !important;
+    padding-top:38px !important;
+    border:1.5px solid #fb923c !important;
+    background:#fffaf0 !important;
+    border-radius:18px !important;
+    overflow:hidden !important;
+  }
+  #quoteTable tbody tr.gift-row::before{
+    content:'🎁 贈送服務' !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    position:absolute !important;
+    top:0 !important;
+    left:0 !important;
+    right:0 !important;
+    height:34px !important;
+    padding:0 14px !important;
+    background:linear-gradient(135deg,#fff7ed,#ffedd5) !important;
+    border-bottom:1px solid #fdba74 !important;
+    color:#c2410c !important;
+    font-weight:900 !important;
+    font-size:14px !important;
+    letter-spacing:.02em !important;
+    z-index:2 !important;
+  }
+  #quoteTable tbody tr.gift-row td:first-child{
+    padding-top:12px !important;
+  }
+  #quoteTable tbody tr.gift-row td:nth-child(4)::before{
+    content:'贈送' !important;
+  }
+  #quoteTable tbody tr.gift-row td:nth-child(5)::before{
+    content:'價值' !important;
+  }
+  .gift-subtotal::after{
+    content:'免費贈送' !important;
+    background:#fff4e6 !important;
+    color:#d9480f !important;
+    border:1px solid #ffc078 !important;
+    font-weight:900 !important;
+  }
+  .gift-subtotal::before{
+    display:block !important;
+    margin:6px 0 0 0 !important;
+    color:#c2410c !important;
+    font-weight:900 !important;
+  }
+  body{ padding-bottom:118px !important; }
+  .mobile-bottom-bar{
+    min-height:0 !important;
+    height:auto !important;
+    padding:9px 12px calc(9px + env(safe-area-inset-bottom)) !important;
+    gap:8px !important;
+  }
+  .mobile-bottom-bar .mobile-gift-line{
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    max-width:120px !important;
+    font-size:12px !important;
+    line-height:1.1 !important;
+    margin-top:3px !important;
+  }
+  .mobile-bottom-bar .total-strong .amount{ font-size:21px !important; }
+  .mobile-bottom-bar .action-btn{
+    height:52px !important;
+    min-height:52px !important;
+    border-radius:14px !important;
+  }
+}
+@media (max-width:370px){
+  .mobile-bottom-bar .mobile-gift-line{ max-width:106px !important; font-size:11px !important; }
+  .mobile-bottom-bar .action-btn{ height:50px !important; min-height:50px !important; font-size:15px !important; }
+}
+</style>
+
 </head>
 <body>
 <header class="quote-header"><h1 class="visually-hidden">自然大叔 線上報價單</h1></header>
