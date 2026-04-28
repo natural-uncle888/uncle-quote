@@ -907,7 +907,7 @@ function syncMobileGiftHint(value){
   if (bar) bar.classList.toggle('has-gift', value > 0);
   if (line){
     line.classList.toggle('d-none', value <= 0);
-    if (value > 0) line.textContent = '🎁 已贈送 $' + value.toLocaleString('zh-TW') + ' 服務';
+    if (value > 0) line.textContent = '🎁 贈送價值 $' + value.toLocaleString('zh-TW');
   }
 }
 
@@ -940,7 +940,11 @@ function updateTotals(){
 
     if (noteEl) noteEl.textContent = "";
     tr.classList.remove("gift-row");
-    if (subEl) subEl.classList.remove("gift-subtotal");
+    if (subEl) {
+      subEl.classList.remove("gift-subtotal");
+      subEl.removeAttribute("data-gift-value");
+      subEl.removeAttribute("data-gift-label");
+    }
     const overridden = priceEl?.dataset.override === "true";
 
     if (!overridden){
@@ -973,7 +977,11 @@ function updateTotals(){
       const originalUnit = estimateGiftOriginalPrice(service, option, qty);
       giftValue += originalUnit * qty;
       tr.classList.add("gift-row");
-      if (subEl) subEl.classList.add("gift-subtotal");
+      if (subEl) {
+        subEl.classList.add("gift-subtotal");
+        subEl.setAttribute("data-gift-label", "🎁 贈送");
+        if (originalUnit > 0) subEl.setAttribute("data-gift-value", "價值 $" + (originalUnit * qty).toLocaleString('zh-TW'));
+      }
       if (noteEl) noteEl.innerHTML = formatGiftPriceNote(originalUnit);
     }
     const subtotal = qty * finalPrice;

@@ -833,6 +833,155 @@ html, body { overflow-x: hidden; }
 .nice-dialog__btn--ghost:hover{filter:brightness(0.98);}
 </style>
 
+
+<style id="gift-ui-polish-v2">
+/* === Gift display polish v2 === */
+#quoteTable tbody tr.gift-row{
+  background: linear-gradient(90deg, #fffaf0 0%, #fff 60%);
+}
+#quoteTable tbody tr.gift-row td{
+  vertical-align: middle;
+}
+.gift-price-note{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:4px;
+  min-width:0;
+}
+.gift-price-note .gift-original{
+  color:#8a8f98;
+  text-decoration:line-through;
+  text-decoration-thickness:2px;
+  white-space:nowrap;
+}
+.gift-price-note .gift-badge{
+  padding:2px 9px;
+  border-radius:999px;
+  background:#fff4e6;
+  color:#d9480f;
+  border:1px solid #ffc078;
+  font-size:.82rem;
+  font-weight:900;
+  white-space:nowrap;
+}
+.gift-subtotal{
+  font-size:0 !important;
+  text-align:center;
+  min-width:96px;
+}
+.gift-subtotal::after{
+  content: attr(data-gift-label);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:4px 10px;
+  border-radius:999px;
+  background:#fff4e6;
+  border:1px solid #ffc078;
+  color:#d9480f;
+  font-size:.95rem;
+  line-height:1.1;
+  font-weight:900;
+  white-space:nowrap;
+}
+.gift-subtotal::before{
+  content: attr(data-gift-value);
+  display:block;
+  margin-top:4px;
+  color:#d9480f;
+  font-size:.78rem;
+  line-height:1.1;
+  font-weight:800;
+  white-space:nowrap;
+}
+.gift-total-hint{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  margin-top:12px;
+  padding:12px 16px;
+  border-radius:12px;
+  background:linear-gradient(135deg,#fff7ed,#fff);
+  border:1px solid #fdba74;
+  color:#c2410c;
+  font-weight:900;
+}
+@media (max-width:576px){
+  body{ padding-bottom: 136px !important; }
+  #quoteTable tbody tr.gift-row{
+    border:1.5px solid #fb923c !important;
+    background:#fffaf0 !important;
+    box-shadow:0 6px 18px rgba(249,115,22,.12);
+  }
+  #quoteTable tbody tr.gift-row::before{ display:none !important; }
+  #quoteTable tbody tr.gift-row td:nth-child(4)::before{ content:'優惠價' !important; }
+  #quoteTable tbody tr.gift-row td:nth-child(4) .price{ display:inline-block !important; }
+  .gift-price-note{ font-size:.95rem; }
+  .gift-price-note .gift-badge{ font-size:.85rem; padding:3px 10px; }
+  .gift-subtotal{ text-align:left; min-width:0; }
+  .gift-subtotal::after{ font-size:.9rem; padding:4px 10px; }
+  .gift-subtotal::before{ display:inline-block; margin-left:8px; font-size:.82rem; }
+  .gift-total-hint{ border-radius:14px; font-size:.92rem; justify-content:flex-start; }
+
+  .mobile-bottom-bar{
+    display:grid !important;
+    grid-template-columns: minmax(116px,.82fr) 1.58fr;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px 12px !important;
+    min-height:112px;
+  }
+  .mobile-bottom-bar .total-strong{
+    min-width:0 !important;
+    width:auto;
+    line-height:1.12;
+  }
+  .mobile-bottom-bar .total-strong .label{
+    display:block;
+    font-size:13px;
+    margin-bottom:4px;
+  }
+  .mobile-bottom-bar .total-strong .amount{
+    display:block;
+    font-size:22px;
+    white-space:nowrap;
+  }
+  .mobile-bottom-bar .mobile-gift-line{
+    display:block;
+    margin-top:6px;
+    font-size:13px;
+    line-height:1.15;
+    color:#fff7d6;
+    font-weight:900;
+    white-space:nowrap;
+  }
+  .mobile-bottom-bar .buttons-row{
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    min-width:0;
+    align-items:center;
+  }
+  .mobile-bottom-bar .action-btn{
+    height:58px;
+    min-height:58px;
+    padding:0 8px;
+    font-size:17px;
+    border-radius:16px;
+  }
+  .mobile-bottom-bar .action-share:not(.d-none){ grid-column:1 / -1; }
+  .mobile-bottom-bar .action-share.d-none + .action-cancel:not(.d-none){ grid-column:auto; }
+}
+@media (max-width:370px){
+  .mobile-bottom-bar{ grid-template-columns:110px 1fr; gap:8px; padding-left:10px !important; padding-right:10px !important; }
+  .mobile-bottom-bar .total-strong .amount{ font-size:20px; }
+  .mobile-bottom-bar .mobile-gift-line{ font-size:12px; }
+  .mobile-bottom-bar .action-btn{ font-size:15px; height:54px; min-height:54px; }
+}
+</style>
+
 </head>
 <body>
 <header class="quote-header"><h1 class="visually-hidden">自然大叔 線上報價單</h1></header>
