@@ -876,13 +876,48 @@ function updateRowCategoryTag(tr){
   }
 }
 
+
+function estimateGiftOriginalPrice(service, option, qty){
+  qty = Math.max(1, Number(qty||1));
+  if (service === "冷氣清洗" && String(option).includes("分離式")) return (qty >= 3) ? 1500 : 1800;
+  if (service === "冷氣清洗" && String(option).includes("吊隱式")) return 2800;
+  if (service === "洗衣機清洗" && String(option).includes("直立式")) return 2000;
+  if (service === "防霉處理") return (qty >= 5) ? 250 : 300;
+  if (service === "臭氧殺菌") return (qty >= 5) ? 150 : 200;
+  if (service === "變形金剛機型") return 500;
+  if (service === "一體式水盤機型") return 500;
+  if (service === "超長費用") return 300;
+  if (service === "水塔清洗") return 1000;
+  return 0;
+}
+
+function formatGiftPriceNote(originalValue){
+  originalValue = Number(originalValue || 0);
+  if (originalValue <= 0) return '<span class="gift-price-note"><span class="gift-badge">🎁 贈送</span></span>';
+  return '<span class="gift-price-note"><span class="gift-original">$' + originalValue.toLocaleString('zh-TW') + '</span><span class="gift-badge">🎁 贈送</span></span>';
+}
+function renderGiftTotalHint(value){
+  value = Number(value || 0);
+  return value > 0 ? '<div class="gift-total-hint">🎁 本次優惠贈送價值 $' + value.toLocaleString('zh-TW') + ' 服務</div>' : '';
+}
+function syncMobileGiftHint(value){
+  value = Number(value || 0);
+  const bar = document.querySelector('.mobile-bottom-bar');
+  const line = document.getElementById('mobileGiftLine');
+  if (bar) bar.classList.toggle('has-gift', value > 0);
+  if (line){
+    line.classList.toggle('d-none', value <= 0);
+    if (value > 0) line.textContent = '🎁 已贈送 $' + value.toLocaleString('zh-TW') + ' 服務';
+  }
+}
+
 /* =====================
    自動帶價 + 合計
 ===================== */
 
 
 function updateTotals(){
-  let total = 0, hasAC=false, hasPipe=false;
+  let total = 0, hasAC=false, hasPipe=false, giftValue=0;
   const categoryTotals = {};
 
   // 先掃描是否有指定項目以決定優惠
@@ -904,6 +939,8 @@ function updateTotals(){
     let price = Number(priceEl?.value || 0);
 
     if (noteEl) noteEl.textContent = "";
+    tr.classList.remove("gift-row");
+    if (subEl) subEl.classList.remove("gift-subtotal");
     const overridden = priceEl?.dataset.override === "true";
 
     if (!overridden){
@@ -931,7 +968,15 @@ function updateTotals(){
       priceEl.value = price;
     }
 
-    const subtotal = qty * (Number(priceEl?.value || price) || 0);
+    const finalPrice = (Number(priceEl?.value || price) || 0);
+    if (service && finalPrice === 0) {
+      const originalUnit = estimateGiftOriginalPrice(service, option, qty);
+      giftValue += originalUnit * qty;
+      tr.classList.add("gift-row");
+      if (subEl) subEl.classList.add("gift-subtotal");
+      if (noteEl) noteEl.innerHTML = formatGiftPriceNote(originalUnit);
+    }
+    const subtotal = qty * finalPrice;
     if (subEl) subEl.textContent = String(subtotal);
     total += subtotal;
 
@@ -972,6 +1017,7 @@ function updateTotals(){
     }
   }catch(_){}
 
+  window.__giftValueTotal = giftValue;
   // 未稅總計
   // Dynamic totals rendering (no static #total/#totalWithTax banners)
   const totalWithTax = Math.round(total * 1.05);
@@ -979,9 +1025,11 @@ function updateTotals(){
   (function(){
     const container = qs("#totalContainer");
     if (container) {
+      const giftValue = window.__giftValueTotal || 0;
+      const giftHtml = renderGiftTotalHint(giftValue);
       container.innerHTML = showTax
-        ? `<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">${totalWithTax}</span> 元</h5>`
-        : `<h5 class="mt-3 total-banner">合計：<span id="total">${total}</span> 元</h5>`;
+        ? `<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">${totalWithTax}</span> 元</h5>${giftHtml}`
+        : `<h5 class="mt-3 total-banner">合計：<span id="total">${total}</span> 元</h5>${giftHtml}`;
     }
   })();
 
@@ -991,6 +1039,7 @@ function updateTotals(){
 
   // 手機底部合計：若開啟含稅，就顯示含稅；否則顯示未稅
   setText(qs("#totalMobile"), showTax ? totalWithTax : total);
+  syncMobileGiftHint(giftValue);
 
   // 同步更新摘要卡
   try{ updateSummaryCard(); }catch(_){}
@@ -1222,6 +1271,93 @@ async function handleConfirmSubmit(clickedBtn){
 qs('#confirmBtnDesktop')?.addEventListener('click', function(){ handleConfirmSubmit(this); });
 qs('#confirmBtnMobile')?.addEventListener('click', function(){ handleConfirmSubmit(this); });
 
+
+
+/* =====================
+   LINE 基礎版：一鍵產生報價訊息
+===================== */
+function escapeHtmlLineBasic(str){
+  return String(str ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function getQuoteNoFromUrl(url){
+  try{
+    const u = new URL(url, location.href);
+    return u.searchParams.get('cid') || u.hash.replace(/^#cid=/,'') || '';
+  }catch(_){ return ''; }
+}
+function buildLineQuoteMessage(shareUrl){
+  const data = collectShareData();
+  const customer = (data.customer || '貴賓').trim();
+  const quoteNo = getQuoteNoFromUrl(shareUrl);
+  const total = Number(data.total || 0).toLocaleString('zh-TW');
+
+  // LINE 智慧版：只有真的有贈送服務時，才顯示贈送價值與贈送項目。
+  const giftItems = (data.items || [])
+    .filter(it => {
+      const serviceName = String(it.service || '').trim();
+      const price = Number(it.price || 0);
+      return serviceName && price === 0;
+    })
+    .map(it => {
+      const qty = Math.max(1, Number(it.qty || 1));
+      const originalUnit = estimateGiftOriginalPrice(it.service || '', it.option || '', qty);
+      const name = [it.service, it.option].filter(Boolean).join(' - ');
+      return { name, qty, originalValue: originalUnit * qty };
+    })
+    .filter(it => it.name);
+
+  const calculatedGiftValue = giftItems.reduce((sum, it) => sum + Number(it.originalValue || 0), 0);
+  const giftValue = calculatedGiftValue > 0 ? calculatedGiftValue : Number(window.__giftValueTotal || 0);
+  let giftLine = '';
+  if (giftValue > 0){
+    const giftNames = giftItems.length
+      ? `\n🎁 加贈：${giftItems.map(it => `${it.name}${it.qty > 1 ? ` x ${it.qty}` : ''}`).join('、')}`
+      : '';
+    giftLine = `\n🎁 本次優惠贈送價值 $${giftValue.toLocaleString('zh-TW')} 服務${giftNames}`;
+  }
+
+  const mainItems = (data.items || [])
+    .filter(it => (it.service || it.option || '').trim())
+    .slice(0, 5)
+    .map(it => {
+      const name = [it.service, it.option].filter(Boolean).join(' - ');
+      const isGift = String(it.service || '').trim() && Number(it.price || 0) === 0;
+      return `・${name} x ${it.qty || 1}${isGift ? '（贈送）' : ''}`;
+    });
+  const itemsText = mainItems.length ? `\n\n📌 服務項目：\n${mainItems.join('\n')}` : '';
+  const quoteNoLine = quoteNo ? `\n📋 報價編號：${quoteNo}` : '';
+  return `${customer} 您好 😊\n這是您的到府清洗報價單，請您確認。${quoteNoLine}\n💰 本次報價：$${total}${giftLine}${itemsText}\n\n👉 點我查看報價單：\n${shareUrl}\n\n如有任何問題，歡迎直接回覆 LINE，謝謝您！\n— 自然大叔`;
+}
+async function copyTextLineBasic(text, btn){
+  try{
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+    else { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    if (btn){ const orig=btn.textContent; btn.textContent='✅ 已複製'; setTimeout(()=>btn.textContent=orig,1500); }
+  }catch(_){ alert('複製失敗，請手動選取複製'); }
+}
+function injectLineMessageTools(shareUrl){
+  const box = qs('#shareLinkBox');
+  if (!box) return;
+  const message = buildLineQuoteMessage(shareUrl);
+  const encoded = encodeURIComponent(message);
+  const wrap = document.createElement('div');
+  wrap.className = 'line-message-box mt-3 p-3 rounded-4 border';
+  wrap.style.background = '#f6fff6';
+  wrap.style.borderColor = '#b7ebc6';
+  wrap.innerHTML = `
+    <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
+      <div class="fw-bold text-success">🟢 LINE 報價單訊息</div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-success btn-sm" type="button" id="copyLineMsgBtn">📋 複製 LINE 訊息</button>
+        <a class="btn btn-outline-success btn-sm" id="openLineShareBtn" href="https://line.me/R/msg/text/?${encoded}" target="_blank" rel="noopener">開啟 LINE 分享</a>
+      </div>
+    </div>
+    <textarea class="form-control line-message-text" id="lineMessageText" rows="8" readonly>${escapeHtmlLineBasic(message)}</textarea>
+    <div class="small text-muted mt-2">手機可直接按「開啟 LINE 分享」；電腦版建議先複製訊息，再貼到 LINE 官方帳號聊天視窗。</div>`;
+  box.appendChild(wrap);
+  qs('#copyLineMsgBtn')?.addEventListener('click', function(){ copyTextLineBasic(qs('#lineMessageText')?.value || message, this); });
+}
+
 /* =====================
    產生分享連結
 ===================== */
@@ -1268,6 +1404,7 @@ async function handleShareClick(){
         const el=qs('#copyLinkBtn'); const orig=el.textContent; el.textContent="✅ 已複製"; setTimeout(()=> el.textContent=orig,1500);
       }catch(_){ alert("複製失敗，請手動選取複製"); }
     });
+    try{ injectLineMessageTools(hrefWithTax); }catch(e){ console.warn('LINE 訊息工具產生失敗', e); }
   }catch(err){ console.error(err); alert("產生連結失敗，請稍後再試。"); }
   finally { if (clickedBtn){ clickedBtn.disabled=false; clickedBtn.textContent=originalText||'產生連結'; } }
 
@@ -1400,7 +1537,7 @@ qs("#technicianName").value = data.technician|| "";
       <td>
         <input type="number" class="form-control price" value="${it.price||0}" 
                ${it.overridden ? 'data-override="true"' : ''} readonly />
-        ${it.overridden ? '<small class="text-warning ms-1">(自訂單價)</small>' : '<small class="discount-note"></small>'}
+        ${(it.overridden && Number(it.price||0)===0) ? `<small class="discount-note">${formatGiftPriceNote(estimateGiftOriginalPrice(it.service,it.option,it.qty))}</small>` : (it.overridden ? '<small class="text-warning ms-1">(自訂單價)</small>' : '<small class="discount-note"></small>')}
       </td>
       <td class="subtotal">${it.subtotal||0}</td>
       <td></td>`;
@@ -2014,15 +2151,18 @@ document.addEventListener('DOMContentLoaded', function(){
       } else {
         rows.push('<div class="d-flex justify-content-between small text-muted"><span>活動優惠</span><span>目前未套用</span></div>');
       }
+      const giftValue = Number(window.__giftValueTotal || 0);
+      const giftHtml = (typeof renderGiftTotalHint === 'function') ? renderGiftTotalHint(giftValue) : '';
       const totalLine = showTax
         ? '<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">'+ grand +'</span> 元</h5>'
         : '<h5 class="mt-2 total-banner">合計：<span id="total">'+ grand +'</span> 元</h5>';
-      container.innerHTML = '<div class="d-flex flex-column gap-1">'+ rows.join('') + totalLine + '</div>';
+      container.innerHTML = '<div class="d-flex flex-column gap-1">'+ rows.join('') + totalLine + giftHtml + '</div>';
     }
 
     // 更新手機版合計
     const mobile = document.getElementById('totalMobile');
     if (mobile) mobile.textContent = String(grand);
+    if (typeof syncMobileGiftHint === 'function') syncMobileGiftHint(window.__giftValueTotal || 0);
 
     // 更新摘要卡優惠提示
     try{

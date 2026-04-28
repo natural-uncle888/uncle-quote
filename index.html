@@ -188,6 +188,58 @@ html, body { overflow-x: hidden; }
     .total-banner #total{ font-size:1.4rem; }
 
 
+
+
+/* === Gift service mobile polish (ChatGPT Patch) === */
+.gift-price-note{
+  display:inline-flex; align-items:center; flex-wrap:wrap; gap:6px;
+  margin-top:6px; font-weight:800; color:#b42318;
+}
+.gift-price-note .gift-original{
+  color:#8a8f98; text-decoration:line-through; text-decoration-thickness:2px;
+}
+.gift-price-note .gift-badge{
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:999px;
+  background:#fff0d6; color:#9a3412; border:1px solid #ffd08a;
+  box-shadow:0 2px 8px rgba(245,158,11,.12);
+}
+.gift-subtotal{ font-size:0 !important; }
+.gift-subtotal::after{
+  content:'🎁 贈送'; font-size:1rem; font-weight:900; color:#b42318;
+  display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px;
+  background:#fff7ed; border:1px solid #fed7aa;
+}
+.gift-total-hint{
+  display:inline-flex; align-items:center; gap:6px;
+  margin-top:10px; padding:8px 12px; border-radius:999px;
+  background:linear-gradient(135deg,#fff7ed,#fff1f2);
+  border:1px solid #fed7aa; color:#b42318; font-weight:800;
+}
+@media (max-width:576px){
+  #quoteTable tbody tr.gift-row{
+    border:2px solid #f59e0b; background:linear-gradient(135deg,#fffaf0 0%,#fff 55%,#fff7ed 100%);
+    box-shadow:0 10px 24px rgba(245,158,11,.18);
+    position:relative; overflow:hidden;
+  }
+  #quoteTable tbody tr.gift-row::before{
+    content:'🎁 贈送服務'; position:absolute; top:0; right:0;
+    padding:4px 10px; border-bottom-left-radius:12px;
+    background:#f97316; color:white; font-size:.78rem; font-weight:900;
+  }
+  #quoteTable tbody tr.gift-row td:nth-child(4) .price{ display:none; }
+  #quoteTable tbody tr.gift-row td:nth-child(4)::before{ content:'優惠'; }
+  .gift-price-note{ display:flex; margin-top:2px; font-size:1rem; }
+  .gift-price-note .gift-badge{ font-size:1rem; padding:6px 12px; }
+  .gift-total-hint{ width:100%; justify-content:center; border-radius:16px; font-size:.95rem; }
+  .mobile-bottom-bar.has-gift{
+    background:linear-gradient(135deg,#0d6efd 0%,#0b5ed7 58%,#f97316 100%);
+  }
+  .mobile-bottom-bar .mobile-gift-line{
+    display:block; margin-top:2px; font-size:.76rem; color:#fff8e1; font-weight:800; line-height:1.2;
+  }
+}
+
     /* 報價摘要卡 & 服務項目 legend */
     .summary-card{
       border-radius: 16px;
@@ -1247,7 +1299,7 @@ html, body { overflow-x: hidden; }
 </div>
 <!-- 手機底部固定工具列：只保留「產生連結」 -->
 <div class="mobile-bottom-bar d-md-none">
-<div class="total-strong"><span class="label">合計：</span><br/><span class="amount"><span id="totalMobile">0</span> 元</span> <span id="totalMobileTag" class="ms-1 small fw-bold text-white d-none">(含稅)</span></div>
+<div class="total-strong"><span class="label">合計：</span><br/><span class="amount"><span id="totalMobile">0</span> 元</span> <span id="totalMobileTag" class="ms-1 small fw-bold text-white d-none">(含稅)</span><span id="mobileGiftLine" class="mobile-gift-line d-none">🎁 本次有贈送服務</span></div>
 <div class="d-flex gap-2 buttons-row flex-grow-1">
 <button aria-label="產生報價單連結" class="btn action-btn action-share flex-fill" id="shareLinkBtnMobile">
           產生連結

@@ -94,3 +94,8 @@ Email（顧客同意後寄通知信）
 備註：
 - 本版本沒有 app.backup.js，也沒有 untaxedBox；含稅/未稅顯示由 app.js 動態控制。
 - 若要限制管理頁/管理 API 存取，建議加上管理端 token 或使用 Netlify Identity/基本驗證。
+
+LINE 基礎版更新：
+- 產生報價單連結後，會同步產生 LINE 報價單訊息。
+- 可一鍵複製 LINE 訊息，貼到 LINE 官方帳號後台聊天視窗發送給客戶。
+- 手機可點擊「開啟 LINE 分享」直接帶入訊息。
