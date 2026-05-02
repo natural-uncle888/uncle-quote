@@ -127,8 +127,14 @@ function setMobileBottomBar(show){
 
   if (!bar) return;
   try{
-    if (show && typeof getQuoteFinalState === 'function' && getQuoteFinalState().finalized) show = false;
+    if (typeof getQuoteFinalState === 'function' && getQuoteFinalState().finalized) {
+      if (typeof updateMobileFinalStatus === 'function') updateMobileFinalStatus();
+      return;
+    }
   }catch(_){}
+  const statusBox = document.querySelector('#mobileQuoteFinalStatus');
+  if (statusBox) statusBox.classList.add('d-none');
+  bar.classList.remove('is-finalized', 'is-confirmed', 'is-cancelled', 'is-locked');
   // 以行為為主：show=false → 移除；show=true → 顯示（仍受 CSS @media 控制）
   bar.style.display = show ? '' : 'none';
   bar.classList.toggle('d-none', !show);
@@ -1473,6 +1479,55 @@ function getQuoteFinalState(){
   return { locked, confirmed, cancelled, finalized: locked || confirmed || cancelled };
 }
 
+function updateMobileFinalStatus(){
+  const state = getQuoteFinalState();
+  const bar = qs('.mobile-bottom-bar');
+  const box = qs('#mobileQuoteFinalStatus');
+  if (!bar || !box) return false;
+
+  const iconEl = box.querySelector('.mobile-final-status-icon');
+  const titleEl = box.querySelector('.mobile-final-status-title');
+  const subEl = box.querySelector('.mobile-final-status-sub');
+
+  bar.classList.remove('is-finalized', 'is-confirmed', 'is-cancelled', 'is-locked');
+
+  if (!state.finalized) {
+    box.classList.add('d-none');
+    return false;
+  }
+
+  let icon = '🔒';
+  let title = '已封存';
+  let sub = '僅供查看';
+  let className = 'is-locked';
+
+  if (state.cancelled) {
+    icon = '⛔';
+    title = '已作廢';
+    sub = '此報價單已作廢';
+    className = 'is-cancelled';
+  } else if (state.confirmed || state.locked) {
+    icon = '✅';
+    title = '已確認報價';
+    sub = '已封存，無需再次操作';
+    className = 'is-confirmed';
+  }
+
+  if (iconEl) iconEl.textContent = icon;
+  if (titleEl) titleEl.textContent = title;
+  if (subEl) subEl.textContent = sub;
+
+  ['#shareLinkBtnMobile', '#cancelBtnMobile', '#confirmBtnMobile'].forEach(sel => {
+    setActionHiddenDisabled(qs(sel), true);
+  });
+
+  box.classList.remove('d-none');
+  bar.classList.add('is-finalized', className);
+  bar.classList.remove('d-none');
+  bar.style.display = '';
+  return true;
+}
+
 function setActionHiddenDisabled(el, hidden){
   if (!el) return;
   el.classList.toggle('d-none', !!hidden);
@@ -1497,12 +1552,8 @@ function syncFinalizedQuoteActions(){
   const ro = qs('#readonlyActions');
   if (ro) ro.classList.add('d-none');
 
-  const bar = qs('.mobile-bottom-bar');
-  if (bar) {
-    // 已確認 / 已作廢 / 已封存後，手機固定底列不再提供任何操作。
-    bar.classList.add('d-none');
-    bar.style.display = 'none';
-  }
+  // 已確認 / 已作廢 / 已封存後，手機固定底列改為顯示狀態，不再提供任何操作。
+  try{ updateMobileFinalStatus(); }catch(_){}
 
   try{ document.dispatchEvent(new CustomEvent('quote:statechange', { detail: state })); }catch(_){}
   return true;

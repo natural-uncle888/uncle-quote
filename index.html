@@ -1065,6 +1065,62 @@ html, body { overflow-x: hidden; }
 }
 </style>
 
+
+<style id="mobile-final-status-style">
+/* Finalized quote state for mobile bottom bar */
+.mobile-bottom-bar.is-finalized{
+  grid-template-columns:minmax(116px,.82fr) 1.58fr;
+}
+.mobile-bottom-bar.is-finalized .buttons-row{
+  display:flex !important;
+  align-items:center;
+}
+.mobile-bottom-bar .mobile-final-status{
+  width:100%;
+  min-height:52px;
+  padding:8px 10px;
+  border-radius:14px;
+  background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.36);
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  line-height:1.15;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16);
+}
+.mobile-bottom-bar .mobile-final-status.d-none{ display:none !important; }
+.mobile-final-status-main{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  font-weight:900;
+  font-size:16px;
+  white-space:nowrap;
+}
+.mobile-final-status-sub{
+  margin-top:3px;
+  font-size:12px;
+  font-weight:700;
+  opacity:.9;
+  white-space:nowrap;
+}
+.mobile-bottom-bar.is-finalized.is-cancelled .mobile-final-status{
+  background:rgba(220,53,69,.22);
+  border-color:rgba(255,255,255,.42);
+}
+.mobile-bottom-bar.is-finalized.is-locked .mobile-final-status{
+  background:rgba(33,37,41,.22);
+}
+@media (max-width:370px){
+  .mobile-final-status-main{ font-size:15px; }
+  .mobile-final-status-sub{ font-size:11px; }
+  .mobile-bottom-bar .mobile-final-status{ padding-left:8px; padding-right:8px; }
+}
+</style>
 </head>
 <body>
 <header class="quote-header"><h1 class="visually-hidden">自然大叔 線上報價單</h1></header>
@@ -1529,7 +1585,7 @@ html, body { overflow-x: hidden; }
 </div>
 <div class="link-box d-none" id="shareLinkBox"></div>
 </div>
-<!-- 手機底部固定工具列：只保留「產生連結」 -->
+<!-- 手機底部固定工具列：編輯/待確認顯示操作；已確認/已作廢顯示狀態 -->
 <div class="mobile-bottom-bar d-md-none">
 <div class="total-strong"><span class="label">合計：</span><br/><span class="amount"><span id="totalMobile">0</span> 元</span> <span id="totalMobileTag" class="ms-1 small fw-bold text-white d-none">(含稅)</span><span id="mobileGiftLine" class="mobile-gift-line d-none">🎁 本次有贈送服務</span></div>
 <div class="d-flex gap-2 buttons-row flex-grow-1">
@@ -1542,6 +1598,10 @@ html, body { overflow-x: hidden; }
 <button aria-label="我同意此報價" class="btn action-btn action-confirm flex-fill d-none" id="confirmBtnMobile">
           我同意此報價
         </button>
+<div class="mobile-final-status d-none" id="mobileQuoteFinalStatus" role="status" aria-live="polite">
+  <div class="mobile-final-status-main"><span class="mobile-final-status-icon">✅</span><span class="mobile-final-status-title">已確認報價</span></div>
+  <div class="mobile-final-status-sub">已封存，無需再次操作</div>
+</div>
 </div>
 </div>
 <div class="footer-bar"><small>© 2025 自然大叔 All Rights Reserved</small></div>
@@ -1558,8 +1618,18 @@ html, body { overflow-x: hidden; }
       status === 'confirmed' || status === '已確認' || status === '已同意' ||
       status === 'cancelled' || status === 'canceled' || status === '已作廢' || status === '作廢';
   }
+
+  function getInlineFinalState() {
+    var status = String(window.QUOTE_STATUS || '').trim().toLowerCase();
+    var locked = window.QUOTE_LOCKED === true || window.QUOTE_LOCKED === '1' || window.QUOTE_LOCKED === 1;
+    var confirmed = window.QUOTE_CONFIRMED === true || status === 'confirmed' || status === '已確認' || status === '已同意';
+    var cancelled = window.__QUOTE_CANCELLED__ === true || status === 'cancelled' || status === 'canceled' || status === '已作廢' || status === '作廢';
+    return { locked: locked, confirmed: confirmed, cancelled: cancelled, finalized: locked || confirmed || cancelled };
+  }
   function hideFinalizedActions() {
+    var state = getInlineFinalState();
     var bar = document.querySelector('.mobile-bottom-bar');
+    var statusBox = document.getElementById('mobileQuoteFinalStatus');
     ['shareLinkBtnMobile','cancelBtnMobile','confirmBtnMobile'].forEach(function(id){
       var btn = document.getElementById(id);
       if (btn) {
@@ -1569,10 +1639,31 @@ html, body { overflow-x: hidden; }
         btn.style.display = 'none';
       }
     });
-    if (bar) {
-      bar.classList.add('d-none');
-      bar.style.display = 'none';
+    if (!bar || !statusBox) return;
+
+    var icon = '🔒';
+    var title = '已封存';
+    var sub = '僅供查看';
+    if (state.cancelled) {
+      icon = '⛔'; title = '已作廢'; sub = '此報價單已作廢';
+    } else if (state.confirmed || state.locked) {
+      icon = '✅'; title = '已確認報價'; sub = '已封存，無需再次操作';
     }
+
+    var iconEl = statusBox.querySelector('.mobile-final-status-icon');
+    var titleEl = statusBox.querySelector('.mobile-final-status-title');
+    var subEl = statusBox.querySelector('.mobile-final-status-sub');
+    if (iconEl) iconEl.textContent = icon;
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = sub;
+
+    statusBox.classList.remove('d-none');
+    bar.classList.remove('d-none', 'is-confirmed', 'is-cancelled', 'is-locked');
+    bar.classList.add('is-finalized');
+    if (state.cancelled) bar.classList.add('is-cancelled');
+    else if (state.confirmed) bar.classList.add('is-confirmed');
+    else if (state.locked) bar.classList.add('is-locked');
+    bar.style.display = '';
   }
   function getTotal() {
     var el = document.getElementById('totalMobile');
@@ -1591,6 +1682,9 @@ html, body { overflow-x: hidden; }
     var cancelBtn = document.getElementById('cancelBtnMobile');
     var confirmBtn = document.getElementById('confirmBtnMobile');
     var shareBtn = document.getElementById('shareLinkBtnMobile');
+    var statusBox = document.getElementById('mobileQuoteFinalStatus');
+    if (statusBox) statusBox.classList.add('d-none');
+    if (bar) bar.classList.remove('is-finalized','is-confirmed','is-cancelled','is-locked');
 
     if (isMobile() && getTotal() === 0 && !window.__hasEditedQuote__) {
       // 尚未編輯：整個行動列隱藏
@@ -1643,8 +1737,18 @@ html, body { overflow-x: hidden; }
     var cancelled = window.__QUOTE_CANCELLED__ === true || status === 'cancelled' || status === 'canceled' || status === '已作廢' || status === '作廢';
     return locked || confirmed || cancelled;
   }
+
+  function getInlineFinalState() {
+    var status = String(window.QUOTE_STATUS || '').trim().toLowerCase();
+    var locked = window.QUOTE_LOCKED === true || window.QUOTE_LOCKED === '1' || window.QUOTE_LOCKED === 1;
+    var confirmed = window.QUOTE_CONFIRMED === true || status === 'confirmed' || status === '已確認' || status === '已同意';
+    var cancelled = window.__QUOTE_CANCELLED__ === true || status === 'cancelled' || status === 'canceled' || status === '已作廢' || status === '作廢';
+    return { locked: locked, confirmed: confirmed, cancelled: cancelled, finalized: locked || confirmed || cancelled };
+  }
   function hideFinalizedActions() {
+    var state = getInlineFinalState();
     var bar = document.querySelector('.mobile-bottom-bar');
+    var statusBox = document.getElementById('mobileQuoteFinalStatus');
     ['shareLinkBtnMobile','cancelBtnMobile','confirmBtnMobile'].forEach(function(id){
       var btn = document.getElementById(id);
       if (btn) {
@@ -1654,10 +1758,31 @@ html, body { overflow-x: hidden; }
         btn.style.display = 'none';
       }
     });
-    if (bar) {
-      bar.classList.add('d-none');
-      bar.style.display = 'none';
+    if (!bar || !statusBox) return;
+
+    var icon = '🔒';
+    var title = '已封存';
+    var sub = '僅供查看';
+    if (state.cancelled) {
+      icon = '⛔'; title = '已作廢'; sub = '此報價單已作廢';
+    } else if (state.confirmed || state.locked) {
+      icon = '✅'; title = '已確認報價'; sub = '已封存，無需再次操作';
     }
+
+    var iconEl = statusBox.querySelector('.mobile-final-status-icon');
+    var titleEl = statusBox.querySelector('.mobile-final-status-title');
+    var subEl = statusBox.querySelector('.mobile-final-status-sub');
+    if (iconEl) iconEl.textContent = icon;
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = sub;
+
+    statusBox.classList.remove('d-none');
+    bar.classList.remove('d-none', 'is-confirmed', 'is-cancelled', 'is-locked');
+    bar.classList.add('is-finalized');
+    if (state.cancelled) bar.classList.add('is-cancelled');
+    else if (state.confirmed) bar.classList.add('is-confirmed');
+    else if (state.locked) bar.classList.add('is-locked');
+    bar.style.display = '';
   }
   function getTotal() {
     var el = document.getElementById('totalMobile');
@@ -1706,6 +1831,9 @@ html, body { overflow-x: hidden; }
     var shareBtn = document.getElementById('shareLinkBtnMobile');
     var cancelBtn = document.getElementById('cancelBtnMobile');
     var confirmBtn = document.getElementById('confirmBtnMobile');
+    var statusBox = document.getElementById('mobileQuoteFinalStatus');
+    if (statusBox) statusBox.classList.add('d-none');
+    if (bar) bar.classList.remove('is-finalized','is-confirmed','is-cancelled','is-locked');
 
     if (isPendingStatus()) {
       // 唯讀待確認：顯示合計＆取消/同意；隱藏分享
