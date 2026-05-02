@@ -126,8 +126,22 @@ function setMobileBottomBar(show){
   // === End Injected ===
 
   if (!bar) return;
+  try{
+    if (show && typeof getQuoteFinalState === 'function' && getQuoteFinalState().finalized) show = false;
+  }catch(_){}
   // 以行為為主：show=false → 移除；show=true → 顯示（仍受 CSS @media 控制）
   bar.style.display = show ? '' : 'none';
+  bar.classList.toggle('d-none', !show);
+  if (!show) {
+    ['#shareLinkBtnMobile', '#cancelBtnMobile', '#confirmBtnMobile'].forEach(function(sel){
+      var btn = document.querySelector(sel);
+      if (btn) {
+        btn.classList.add('d-none');
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+      }
+    });
+  }
 }
 // ========== End helper ==========
 
@@ -1262,10 +1276,18 @@ async function handleConfirmSubmit(clickedBtn){
           body: JSON.stringify({ id: cid })
         });
       }catch(_){}
+      window.QUOTE_LOCKED = true;
+      window.QUOTE_STATUS = 'confirmed';
+      window.QUOTE_CONFIRMED = true;
+      try{ syncFinalizedQuoteActions(); }catch(_){}
       setTimeout(()=>{ location.href = location.pathname + "#cid=" + encodeURIComponent(cid); location.reload(); }, 300);
       markLocallyLocked("locked:cid:"+cid);
     } else if (hash.startsWith("#data=")) {
       markLocallyLocked("locked:data:"+hash);
+      window.QUOTE_LOCKED = true;
+      window.QUOTE_STATUS = 'confirmed';
+      window.QUOTE_CONFIRMED = true;
+      try{ syncFinalizedQuoteActions(); }catch(_){}
       const btn = qs("#confirmBtnDesktop");
       if (btn){ btn.textContent = "已送出同意"; btn.disabled = true; }
     }
@@ -1443,7 +1465,63 @@ function collectShareData(){
 /* =====================
    可見性（考慮取消狀態）
 ===================== */
+function getQuoteFinalState(){
+  const status = String(window.QUOTE_STATUS || '').trim().toLowerCase();
+  const locked = window.QUOTE_LOCKED === true || window.QUOTE_LOCKED === '1' || window.QUOTE_LOCKED === 1;
+  const confirmed = window.QUOTE_CONFIRMED === true || status === 'confirmed' || status === '已確認' || status === '已同意';
+  const cancelled = !!window.__QUOTE_CANCELLED__ || status === 'cancelled' || status === 'canceled' || status === '已作廢' || status === '作廢';
+  return { locked, confirmed, cancelled, finalized: locked || confirmed || cancelled };
+}
+
+function setActionHiddenDisabled(el, hidden){
+  if (!el) return;
+  el.classList.toggle('d-none', !!hidden);
+  el.disabled = !!hidden;
+  if (hidden) {
+    el.setAttribute('aria-disabled', 'true');
+    el.style.display = 'none';
+  } else {
+    el.removeAttribute('aria-disabled');
+    el.style.display = '';
+  }
+}
+
+function syncFinalizedQuoteActions(){
+  const state = getQuoteFinalState();
+  if (!state.finalized) return false;
+
+  ['#confirmBtnDesktop', '#confirmBtnMobile', '#cancelBtnDesktop', '#cancelBtnMobile', '#shareLinkBtnMobile'].forEach(sel => {
+    setActionHiddenDisabled(qs(sel), true);
+  });
+
+  const ro = qs('#readonlyActions');
+  if (ro) ro.classList.add('d-none');
+
+  const bar = qs('.mobile-bottom-bar');
+  if (bar) {
+    // 已確認 / 已作廢 / 已封存後，手機固定底列不再提供任何操作。
+    bar.classList.add('d-none');
+    bar.style.display = 'none';
+  }
+
+  try{ document.dispatchEvent(new CustomEvent('quote:statechange', { detail: state })); }catch(_){}
+  return true;
+}
+
+/* 防止其它補丁晚一步把按鈕打開後仍可點擊 */
+document.addEventListener('click', function(e){
+  const target = e.target && e.target.closest ? e.target.closest('#confirmBtnDesktop,#confirmBtnMobile,#cancelBtnDesktop,#cancelBtnMobile') : null;
+  if (!target) return;
+  if (getQuoteFinalState().finalized) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    syncFinalizedQuoteActions();
+  }
+}, true);
+
 function setReadonlyButtonsVisibility(canConfirm){
+  if (syncFinalizedQuoteActions()) return;
+
   const admin = isAdmin();
   const cancelled = !!window.__QUOTE_CANCELLED__;
   const effectiveConfirm = canConfirm && !cancelled;
@@ -1583,6 +1661,7 @@ function applyCancelStatus(payload){
       // 無論是否 admin，都隱藏「我同意」
       addClass(qs("#confirmBtnDesktop"), "d-none");
       addClass(qs("#confirmBtnMobile"), "d-none");
+      try{ syncFinalizedQuoteActions(); }catch(_){}
     }
   }catch(e){ console.warn("applyCancelStatus error:", e); }
 }
@@ -1592,14 +1671,27 @@ function applyCancelStatus(payload){
 ===================== */
 function setupCancelButtonsVisibility(payload){
   const resource = extractResource(payload);
+  const ctx = resource?.context?.custom || {};
   const isCancelled =
     (resource?.resource_type === 'raw' && Array.isArray(resource?.tags) && resource.tags.includes('cancelled')) ||
-    (resource?.context?.custom?.status === 'cancelled');
-  const show = !isCancelled; // always show unless already cancelled
+    (ctx.status === 'cancelled') ||
+    !!window.__QUOTE_CANCELLED__;
+  const isLocked =
+    payload?.locked === true || payload?.locked === '1' ||
+    ctx.locked === '1' || ctx.locked === 1 || ctx.locked === true ||
+    window.QUOTE_LOCKED === true;
+  const isConfirmed =
+    isLocked || ctx.status === 'confirmed' || window.QUOTE_CONFIRMED === true ||
+    String(window.QUOTE_STATUS || '').toLowerCase() === 'confirmed';
+  const show = !isCancelled && !isConfirmed;
 
-  console.debug('[quote] cancel visibility', {admin:isAdmin(), want: wantShowCancel(), isCancelled});
+  console.debug('[quote] cancel visibility', {admin:isAdmin(), want: wantShowCancel(), isCancelled, isLocked, isConfirmed});
   toggle(qs('#cancelBtnDesktop'), show);
   toggle(qs('#cancelBtnMobile'), show);
+  if (!show) {
+    setActionHiddenDisabled(qs('#cancelBtnDesktop'), true);
+    setActionHiddenDisabled(qs('#cancelBtnMobile'), true);
+  }
 
   if (show){
     if (!qs('#cancelBtnDesktop')?.dataset.bound){
@@ -1665,9 +1757,12 @@ document.addEventListener('DOMContentLoaded', function(){
   // Initialize multi-address UI
   try{ initAddressUI(); setAddressUIReadOnly(false); }catch(_){ }
 
-  removeClass(qs('#readonlyActions'), 'd-none');
-  removeClass(qs('#cancelBtnDesktop'), 'd-none');
-  removeClass(qs('#cancelBtnMobile'), 'd-none');
+  // 不預先打開取消/同意按鈕；等待 view API 回傳狀態後再決定。
+  // 這可避免已確認/已封存的報價單在手機載入瞬間仍可點擊作廢或同意。
+  addClass(qs('#readonlyActions'), 'd-none');
+  addClass(qs('#cancelBtnDesktop'), 'd-none');
+  addClass(qs('#cancelBtnMobile'), 'd-none');
+  try{ syncFinalizedQuoteActions(); }catch(_){}
 });
 
 /* =====================
@@ -1688,6 +1783,12 @@ document.addEventListener('DOMContentLoaded', function(){
       const data = payload?.data || {};
       const locked = !!payload?.locked;
       window.QUOTE_LOCKED = locked;
+      try{
+        const ctx = payload?.context?.custom || {};
+        if (ctx.status) window.QUOTE_STATUS = String(ctx.status);
+        if (ctx.status === 'confirmed') window.QUOTE_CONFIRMED = true;
+        if (ctx.locked === '1' || ctx.locked === 1 || ctx.locked === true) window.QUOTE_LOCKED = true;
+      }catch(_){}
 
       applyCancelStatus(payload);
       setupCancelButtonsVisibility(payload);
@@ -1715,6 +1816,7 @@ applyReadOnlyData(data);
         if (!isAdmin()) addClass(qs("#readonlyActions"), "d-none");
         window.QUOTE_STATUS = (window.__QUOTE_CANCELLED__ ? 'cancelled' : 'confirmed');
         window.QUOTE_CONFIRMED = !window.__QUOTE_CANCELLED__;
+        try{ syncFinalizedQuoteActions(); }catch(_){}
         if (!window.__QUOTE_CANCELLED__ && typeof window.__confirmModalShow === 'function') window.__confirmModalShow(window.QUOTE_REASON || '');
     }
       return;
@@ -1735,6 +1837,9 @@ applyReadOnlyData(data);
       const data = JSON.parse(decodeURIComponent(hash.replace("#data=","")));
       applyReadOnlyData(data); applyMobileLabels();
       if (isLocallyLocked("locked:data:"+hash)) { 
+        window.QUOTE_LOCKED = true;
+        window.QUOTE_STATUS = 'confirmed';
+        window.QUOTE_CONFIRMED = true;
         addClass(qs("#confirmBtnDesktop"), "d-none");
         addClass(qs("#confirmBtnMobile"), "d-none");
         if (!isAdmin()) addClass(qs("#readonlyActions"), "d-none");
@@ -1742,6 +1847,7 @@ applyReadOnlyData(data);
         notice.className = 'alert alert-success mt-2';
         notice.innerHTML = '此報價單已<span class="fw-bold">完成確認並封存</span>，僅供查看。';
         qs('.container-quote').prepend(notice);
+        try{ syncFinalizedQuoteActions(); }catch(_){}
       } else { 
         setReadonlyButtonsVisibility(true); 
       }

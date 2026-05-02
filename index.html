@@ -1551,6 +1551,29 @@ html, body { overflow-x: hidden; }
 <script>
 (function() {
   function isMobile() { return window.matchMedia('(max-width: 767.98px)').matches; }
+  function isFinalizedQuote() {
+    var status = String(window.QUOTE_STATUS || '').trim().toLowerCase();
+    return window.QUOTE_LOCKED === true || window.QUOTE_LOCKED === '1' || window.QUOTE_LOCKED === 1 ||
+      window.QUOTE_CONFIRMED === true || window.__QUOTE_CANCELLED__ === true ||
+      status === 'confirmed' || status === '已確認' || status === '已同意' ||
+      status === 'cancelled' || status === 'canceled' || status === '已作廢' || status === '作廢';
+  }
+  function hideFinalizedActions() {
+    var bar = document.querySelector('.mobile-bottom-bar');
+    ['shareLinkBtnMobile','cancelBtnMobile','confirmBtnMobile'].forEach(function(id){
+      var btn = document.getElementById(id);
+      if (btn) {
+        btn.classList.add('d-none');
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+        btn.style.display = 'none';
+      }
+    });
+    if (bar) {
+      bar.classList.add('d-none');
+      bar.style.display = 'none';
+    }
+  }
   function getTotal() {
     var el = document.getElementById('totalMobile');
     if (!el) return 0;
@@ -1559,6 +1582,10 @@ html, body { overflow-x: hidden; }
     return isNaN(n) ? 0 : n;
   }
   function toggleBar() {
+    if (isFinalizedQuote()) {
+      hideFinalizedActions();
+      return;
+    }
     var bar = document.querySelector('.mobile-bottom-bar');
     if (!bar) return;
     var cancelBtn = document.getElementById('cancelBtnMobile');
@@ -1602,12 +1629,36 @@ html, body { overflow-x: hidden; }
   // 初始化
   window.addEventListener('resize', toggleBar);
   document.addEventListener('DOMContentLoaded', toggleBar);
+  document.addEventListener('quote:statechange', toggleBar);
   toggleBar();
 })();
 </script><script>
 // MBB_LOGIC_V4B
 (function() {
   function isMobile() { return window.matchMedia('(max-width: 767.98px)').matches; }
+  function isFinalizedQuote() {
+    var status = String(window.QUOTE_STATUS || '').trim().toLowerCase();
+    var locked = window.QUOTE_LOCKED === true || window.QUOTE_LOCKED === '1' || window.QUOTE_LOCKED === 1;
+    var confirmed = window.QUOTE_CONFIRMED === true || status === 'confirmed' || status === '已確認' || status === '已同意';
+    var cancelled = window.__QUOTE_CANCELLED__ === true || status === 'cancelled' || status === 'canceled' || status === '已作廢' || status === '作廢';
+    return locked || confirmed || cancelled;
+  }
+  function hideFinalizedActions() {
+    var bar = document.querySelector('.mobile-bottom-bar');
+    ['shareLinkBtnMobile','cancelBtnMobile','confirmBtnMobile'].forEach(function(id){
+      var btn = document.getElementById(id);
+      if (btn) {
+        btn.classList.add('d-none');
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+        btn.style.display = 'none';
+      }
+    });
+    if (bar) {
+      bar.classList.add('d-none');
+      bar.style.display = 'none';
+    }
+  }
   function getTotal() {
     var el = document.getElementById('totalMobile');
     if (!el) return 0;
@@ -1626,6 +1677,7 @@ html, body { overflow-x: hidden; }
     return !anyEditable;
   }
   function isPendingStatus() {
+    if (isFinalizedQuote()) return false;
     var statusEl = document.querySelector('[data-quote-status], #quoteStatus, input[name="quoteStatus"]');
     var statusTxt = "";
     if (statusEl) {
@@ -1644,6 +1696,10 @@ html, body { overflow-x: hidden; }
 
   function applyMobileBarLogic() {
     if (!isMobile()) return;
+    if (isFinalizedQuote()) {
+      hideFinalizedActions();
+      return;
+    }
     var bar = document.querySelector('.mobile-bottom-bar');
     if (!bar) return;
 
@@ -1679,6 +1735,7 @@ html, body { overflow-x: hidden; }
   document.addEventListener('change', markEdited, { passive: true });
   window.addEventListener('resize', applyMobileBarLogic);
   document.addEventListener('DOMContentLoaded', applyMobileBarLogic);
+  document.addEventListener('quote:statechange', applyMobileBarLogic);
   // 若此腳本在 DOMContentLoaded 之後插入，立即執行一次
   applyMobileBarLogic();
 })();
