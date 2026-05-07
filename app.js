@@ -158,14 +158,47 @@ function wantShowCancel(){ return true; }
 window.__QUOTE_CANCELLED__ = false;
 
 /* =====================
-   Header 初始化
+   Header / 報價日期初始化
+   - 預設帶入今天日期
+   - 可手動改成指定報價日期
 ===================== */
-(function initHeader(){
-  const el = qs("#quoteInfo");
+function pad2(n){ return String(n).padStart(2, '0'); }
+function toLocalDateInputValue(d){
+  d = d instanceof Date && !isNaN(d) ? d : new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function normalizeQuoteIssuedAtValue(v){
+  v = String(v || '').trim();
+  if (!v) return toLocalDateInputValue(new Date());
+  // 支援舊資料 yyyy/mm/dd、yyyy-mm-dd，或先前 datetime-local 的 yyyy-mm-ddTHH:mm
+  const m = v.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T]\d{1,2}:\d{2})?/);
+  if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`;
+  return v;
+}
+function formatQuoteIssuedAt(v){
+  const normalized = normalizeQuoteIssuedAtValue(v);
+  const m = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return normalized || '';
+  return `${m[1]}/${m[2]}/${m[3]}`;
+}
+function renderQuoteInfo(){
+  const el = qs('#quoteInfo');
   if (!el) return;
-  const d = new Date();
-  const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-  el.innerHTML = `<span class="qi-proj">承辦項目：家電清洗服務</span><span class="qi-sep"> ｜ </span><span class="qi-date">報價日期：${dateStr}</span>`;
+  const issuedAt = qs('#quoteIssuedAt')?.value || toLocalDateInputValue(new Date());
+  el.innerHTML = `<span class="qi-proj">承辦項目：家電清洗服務</span><span class="qi-sep"> ｜ </span><span class="qi-date">報價日期：${formatQuoteIssuedAt(issuedAt)}</span>`;
+}
+(function initHeader(){
+  const input = qs('#quoteIssuedAt');
+  if (input && !input.value) input.value = toLocalDateInputValue(new Date());
+  renderQuoteInfo();
+  input?.addEventListener('change', renderQuoteInfo);
+  input?.addEventListener('input', renderQuoteInfo);
+  qs('#quoteNowBtn')?.addEventListener('click', function(){
+    const el = qs('#quoteIssuedAt');
+    if (!el) return;
+    el.value = toLocalDateInputValue(new Date());
+    renderQuoteInfo();
+  });
 })();
 
 /* =====================
@@ -1453,8 +1486,10 @@ function collectShareData(){
       overridden: tr.querySelector(".price")?.dataset.override === "true"
     });
   });
+  try{ renderQuoteInfo(); }catch(_){}
   return {
     quoteInfo: qs("#quoteInfo").textContent.replace(/\s+/g,' ').trim(),
+    quoteIssuedAt: normalizeQuoteIssuedAtValue(qs("#quoteIssuedAt")?.value || ""),
     customer:  qs("#customerName").value,
     phone:     qs("#customerPhone").value,
     address:   (function(){ try{ return (qs("#customerAddress").value||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean); }catch(_){ return []; } })(),
@@ -1594,10 +1629,21 @@ function setReadonlyButtonsVisibility(canConfirm){
    套用唯讀資料
 ===================== */
 function applyReadOnlyData(data){
-  if(data.quoteInfo){
+  // 報價日期：新版優先使用 quoteIssuedAt；舊版則從 quoteInfo 文字回推。
+  try{
     const qi = qs("#quoteInfo");
-    const m = data.quoteInfo.match(/承辦項目：([^｜\s]+).*?報價日期：(\d{4}\/\d{2}\/\d{2})/);
-    qi.innerHTML = m ? `<span class="qi-proj">承辦項目：${m[1]}</span><span class="qi-sep"> ｜ </span><span class="qi-date">報價日期：${m[2]}</span>` : data.quoteInfo;
+    const input = qs("#quoteIssuedAt");
+    let issuedAt = String(data.quoteIssuedAt || "").trim();
+    if (!issuedAt && data.quoteInfo) {
+      const m = String(data.quoteInfo).match(/報價日期：\s*(\d{4}[\/-]\d{1,2}[\/-]\d{1,2}(?:[ T]\d{1,2}:\d{2})?)/);
+      if (m) issuedAt = m[1];
+    }
+    if (input && issuedAt) input.value = normalizeQuoteIssuedAtValue(issuedAt);
+    if (qi) renderQuoteInfo();
+    const editor = qs("#quoteInfoEditor");
+    if (editor) editor.classList.add("d-none");
+  }catch(_){
+    if(data.quoteInfo){ const qi = qs("#quoteInfo"); if(qi) qi.textContent = data.quoteInfo; }
   }
   qs("#customerName").value   = data.customer  || "";
   qs("#customerPhone").value  = data.phone     || "";

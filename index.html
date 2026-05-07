@@ -78,8 +78,12 @@ html, body { overflow-x: hidden; }
     .container-quote > * { position:relative; z-index:1; }
     .logo { width:100%; max-height:150px; object-fit:contain; display:block; margin:0 auto 10px; }
 
-    .quote-info { text-align:center; font-weight:700; color:#333; margin-bottom:14px; }
+    .quote-info { text-align:center; font-weight:700; color:#333; margin-bottom:8px; }
     .quote-info .qi-proj, .quote-info .qi-date, .quote-info .qi-sep { display:inline; }
+    .quote-info-toolbar{max-width:520px;margin:0 auto 14px;display:flex;gap:8px;align-items:end;justify-content:center;flex-wrap:wrap;}
+    .quote-info-toolbar .quote-date-field{min-width:230px;flex:1 1 230px;}
+    .quote-info-toolbar .form-label{font-size:12px;font-weight:800;color:#6c757d;margin-bottom:4px;}
+    .quote-info-toolbar .btn{white-space:nowrap;}
     @media (max-width:576px){
       .quote-info .qi-proj, .quote-info .qi-date { display:block; }
       .quote-info .qi-sep { display:none; }
@@ -1130,6 +1134,13 @@ html, body { overflow-x: hidden; }
 <img alt="自然大叔 Logo" class="logo" src="https://res.cloudinary.com/dijzndzw2/image/upload/v1756944900/2_oufdld.png"/>
 </div>
 <div class="quote-info" id="quoteInfo"></div>
+<div class="quote-info-toolbar" id="quoteInfoEditor" aria-label="報價日期設定">
+  <div class="quote-date-field text-start">
+    <label class="form-label" for="quoteIssuedAt">報價日期</label>
+    <input class="form-control form-control-sm" id="quoteIssuedAt" type="date" />
+  </div>
+  <button class="btn btn-outline-secondary btn-sm" id="quoteNowBtn" type="button">帶入今天日期</button>
+</div>
 <!-- 作廢橫幅 -->
 <div class="alert alert-danger d-none" id="cancelBanner" role="alert">⚠️ 本報價單已作廢</div>
 
