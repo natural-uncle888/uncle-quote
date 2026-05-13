@@ -1,5 +1,5 @@
 // netlify/functions/share.js
-// 接收前端 JSON，存成 Cloudinary raw 檔，回傳分享網址（#cid=public_id）
+// 接收前端 JSON，存成 Cloudinary raw 檔，回傳分享網址（/q/報價單ID）
 
 import crypto from "crypto";
 
@@ -42,12 +42,18 @@ export async function handler(event){
     const j = await r.json();
     if (!r.ok) return resp(r.status, JSON.stringify(j));
 
-    const share_url = SITE_BASE_URL ? `${SITE_BASE_URL}#cid=${encodeURIComponent(public_id)}` : `#cid=${encodeURIComponent(public_id)}`;
-    return json(200, { ok:true, public_id, share_url, secure_url: j.secure_url });
+    const baseUrl = normalizeBaseUrl(SITE_BASE_URL || getBaseUrl(event) || "");
+    const quote_id = rid;
+    const share_url = baseUrl ? `${baseUrl}/q/${encodeURIComponent(quote_id)}` : `/q/${encodeURIComponent(quote_id)}`;
+    return json(200, { ok:true, quote_id, public_id, share_url, secure_url: j.secure_url });
 
   }catch(e){
     return json(500, { error: String(e?.message || e) });
   }
+}
+
+function normalizeBaseUrl(url){
+  return String(url || "").replace(/\/+$/, "");
 }
 
 function resp(status, text){ return { statusCode: status, body: text }; }

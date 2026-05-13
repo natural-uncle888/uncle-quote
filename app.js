@@ -93,8 +93,28 @@ function alertCancelledOnce(){
 function qs(sel){ return document.querySelector(sel); }
 function qsa(sel){ return document.querySelectorAll(sel); }
 function getParam(name){ try{ return new URL(location.href).searchParams.get(name) || ""; }catch(_){ return ""; } }
+function getPathQuoteId(){
+  try{
+    const m = (location.pathname || "").match(/^\/q\/([^\/?#]+)/);
+    return m ? decodeURIComponent(m[1]) : "";
+  }catch(_){ return ""; }
+}
+function normalizeQuotePathId(id){
+  try{ id = decodeURIComponent(String(id || "")); }catch(_){ id = String(id || ""); }
+  id = id.replace(/^#?cid=/i, "").replace(/^\/+|\/+$/g, "");
+  return id.includes("/") ? id.split("/").filter(Boolean).pop() : id;
+}
+function buildQuoteUrlFromId(id){
+  const cleanId = normalizeQuotePathId(id);
+  const base = (location.origin && !String(location.origin).startsWith('file')) ? location.origin : "";
+  const url = base ? new URL(`/q/${encodeURIComponent(cleanId)}`, base) : new URL(`/q/${encodeURIComponent(cleanId)}`, location.href);
+  const tax = getParam('tax');
+  if (tax) url.searchParams.set('tax', tax);
+  return url.toString();
+}
 function getCid(){
   const q = getParam('cid'); if (q) return q;
+  const pathId = getPathQuoteId(); if (pathId) return pathId;
   const m = (location.hash||"").match(/[#&?]cid=([^&]+)/);
   return m ? decodeURIComponent(m[1]) : "";
 }
@@ -1280,8 +1300,8 @@ async function handleConfirmSubmit(clickedBtn){
     let payload = collectShareData(); if (typeof window.__augmentPayloadWithPromo==='function') payload = window.__augmentPayloadWithPromo(payload);
     let cid = null;
     const hash = location.hash || "";
-    const cidFromHash = hash.startsWith("#cid=") ? decodeURIComponent(hash.replace("#cid=","")) : "";
-    if (cidFromHash) { cid = cidFromHash; payload.cloudinaryId = cid; }
+    const cidFromUrl = getCid();
+    if (cidFromUrl) { cid = cidFromUrl; payload.cloudinaryId = cid; }
 
     const res = await fetch("/api/confirm", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -1319,7 +1339,7 @@ async function handleConfirmSubmit(clickedBtn){
       window.QUOTE_STATUS = 'confirmed';
       window.QUOTE_CONFIRMED = true;
       try{ syncFinalizedQuoteActions(); }catch(_){}
-      setTimeout(()=>{ location.href = location.pathname + "#cid=" + encodeURIComponent(cid); location.reload(); }, 300);
+      setTimeout(()=>{ location.href = buildQuoteUrlFromId(cid); }, 300);
       markLocallyLocked("locked:cid:"+cid);
     } else if (hash.startsWith("#data=")) {
       markLocallyLocked("locked:data:"+hash);
@@ -1351,6 +1371,8 @@ function escapeHtmlLineBasic(str){
 function getQuoteNoFromUrl(url){
   try{
     const u = new URL(url, location.href);
+    const pathMatch = (u.pathname || '').match(/^\/q\/([^\/?#]+)/);
+    if (pathMatch) return decodeURIComponent(pathMatch[1]);
     return u.searchParams.get('cid') || u.hash.replace(/^#cid=/,'') || '';
   }catch(_){ return ''; }
 }
@@ -2057,6 +2079,7 @@ document.addEventListener('DOMContentLoaded', function(){
     try { if (window.quote && (window.quote.id || window.quote.qid || window.quote.uuid)) return String(window.quote.id || window.quote.qid || window.quote.uuid); } catch(e){}
     const metaId = document.querySelector('meta[name="quote:id"]');
     if (metaId && metaId.content) return metaId.content;
+    try { const pathId = getPathQuoteId(); if (pathId) return pathId; } catch(e){}
     try { const u = new URL(window.location.href); return u.searchParams.get('qid') || u.searchParams.get('quote_id') || u.searchParams.get('id') || null; } catch(e){}
     return null;
   }
