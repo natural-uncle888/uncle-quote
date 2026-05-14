@@ -117,9 +117,9 @@ export async function handler(event) {
 }
 
 function buildSiteLink(event, id){
-  const base = process.env.SITE_BASE_URL || getBaseUrl(event) || "";
-  const u = String(base || "").replace(/\/+$/, "");
-  return u ? `${u}/q/${encodeURIComponent(id)}` : `/q/${encodeURIComponent(id)}`;
+  const base = getBaseUrl(event) || (process.env.SITE_BASE_URL || "");
+  const u = (base || "/").replace(/\/+$/,"/");
+  return u + `?cid=${encodeURIComponent(id)}`;
 }
 
 function json(status, obj){ return { statusCode: status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) }; }

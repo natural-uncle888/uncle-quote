@@ -2,13 +2,6 @@
   node_bundler = "esbuild"
   external_node_modules = []
 
-
-# 短網址：/q/報價單ID -> index.html，由前端讀取路徑中的 ID
-[[redirects]]
-  from = "/q/:id"
-  to   = "/index.html"
-  status = 200
-
 [[redirects]]
   from = "/api/view"
   to   = "/.netlify/functions/view"

@@ -93,26 +93,8 @@ function alertCancelledOnce(){
 function qs(sel){ return document.querySelector(sel); }
 function qsa(sel){ return document.querySelectorAll(sel); }
 function getParam(name){ try{ return new URL(location.href).searchParams.get(name) || ""; }catch(_){ return ""; } }
-function getPathQuoteId(){
-  try{
-    const m = (location.pathname || "").match(/^\/q\/([^\/?#]+)/);
-    return m ? decodeURIComponent(m[1]) : "";
-  }catch(_){ return ""; }
-}
-function normalizeQuotePathId(id){
-  try{ id = decodeURIComponent(String(id || "")); }catch(_){ id = String(id || ""); }
-  id = id.replace(/^#?cid=/i, "").replace(/^\/+|\/+$/g, "");
-  return id.includes("/") ? id.split("/").filter(Boolean).pop() : id;
-}
-function buildQuoteUrlFromId(id){
-  const cleanId = normalizeQuotePathId(id);
-  const base = (location.origin && !String(location.origin).startsWith('file')) ? location.origin : "";
-  const url = base ? new URL(`/q/${encodeURIComponent(cleanId)}`, base) : new URL(`/q/${encodeURIComponent(cleanId)}`, location.href);
-  return url.toString();
-}
 function getCid(){
   const q = getParam('cid'); if (q) return q;
-  const pathId = getPathQuoteId(); if (pathId) return pathId;
   const m = (location.hash||"").match(/[#&?]cid=([^&]+)/);
   return m ? decodeURIComponent(m[1]) : "";
 }
@@ -1298,8 +1280,8 @@ async function handleConfirmSubmit(clickedBtn){
     let payload = collectShareData(); if (typeof window.__augmentPayloadWithPromo==='function') payload = window.__augmentPayloadWithPromo(payload);
     let cid = null;
     const hash = location.hash || "";
-    const cidFromUrl = getCid();
-    if (cidFromUrl) { cid = cidFromUrl; payload.cloudinaryId = cid; }
+    const cidFromHash = hash.startsWith("#cid=") ? decodeURIComponent(hash.replace("#cid=","")) : "";
+    if (cidFromHash) { cid = cidFromHash; payload.cloudinaryId = cid; }
 
     const res = await fetch("/api/confirm", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -1337,7 +1319,7 @@ async function handleConfirmSubmit(clickedBtn){
       window.QUOTE_STATUS = 'confirmed';
       window.QUOTE_CONFIRMED = true;
       try{ syncFinalizedQuoteActions(); }catch(_){}
-      setTimeout(()=>{ location.href = buildQuoteUrlFromId(cid); }, 300);
+      setTimeout(()=>{ location.href = location.pathname + "#cid=" + encodeURIComponent(cid); location.reload(); }, 300);
       markLocallyLocked("locked:cid:"+cid);
     } else if (hash.startsWith("#data=")) {
       markLocallyLocked("locked:data:"+hash);
@@ -1369,8 +1351,6 @@ function escapeHtmlLineBasic(str){
 function getQuoteNoFromUrl(url){
   try{
     const u = new URL(url, location.href);
-    const pathMatch = (u.pathname || '').match(/^\/q\/([^\/?#]+)/);
-    if (pathMatch) return decodeURIComponent(pathMatch[1]);
     return u.searchParams.get('cid') || u.hash.replace(/^#cid=/,'') || '';
   }catch(_){ return ''; }
 }
@@ -1458,14 +1438,14 @@ async function handleShareClick(){
     const raw = await res.text();
     let data; try{ data = JSON.parse(raw); }catch(_){ data = {}; }
     const href = data.share_url || data.pdf_url || "#";
-
-    // 連結畫面與 LINE 訊息不再附加 ?tax=0 / ?tax=1，保持 /q/報價單ID 乾淨格式
-    let hrefWithTax = href;
+    
+    // Append tax preference as query param to the share link
     try {
+      const taxOn = qs('#toggleTax')?.checked === true;
       const urlObj = new URL(href, location.href);
-      urlObj.search = "";
-      hrefWithTax = urlObj.toString();
-    } catch(_) { hrefWithTax = href; }
+      urlObj.searchParams.set('tax', taxOn ? '1' : '0');
+      var hrefWithTax = urlObj.toString();
+    } catch(_) { var hrefWithTax = href; }
     const box = qs("#shareLinkBox");
     removeClass(box, "d-none");
     box.innerHTML = `
@@ -1519,7 +1499,6 @@ function collectShareData(){
     cleanDate: (qs("#cleanDate")?.value || ""),
     cleanTime: qs("#cleanFull").textContent,
     otherNotes:qs("#otherNotes").value,
-    taxMode: (qs("#toggleTax")?.checked === true ? "1" : "0"),
     items, total: (function(){ try{ let sum=0; qsa("#quoteTable tbody tr").forEach(tr=>{ const v=parseInt(tr.querySelector(".subtotal")?.textContent||"0",10); sum+=isNaN(v)?0:v; }); return String(sum);}catch(_){return "0";} })()
   };
 }
@@ -1718,20 +1697,6 @@ qs("#technicianName").value = data.technician|| "";
     if (cd) cd.style.display = 'none';
     if (ct) ct.style.display = 'none';
   })();
-  // 套用產生報價時的含稅顯示設定；不再依賴網址上的 ?tax=0 / ?tax=1
-  try{
-    const mode = String(data.taxMode ?? data.showTax ?? "").trim();
-    const taxToggle = qs("#toggleTax");
-    const taxGroup = taxToggle?.closest('.form-check') || qs('#taxToggleGroup');
-    if (mode === "1" || mode === "true") {
-      if (taxToggle) taxToggle.checked = true;
-      if (taxGroup) taxGroup.classList.remove('d-none');
-    } else if (mode === "0" || mode === "false") {
-      if (taxToggle) taxToggle.checked = false;
-      if (taxGroup) taxGroup.classList.add('d-none');
-    }
-  }catch(_){}
-
   qs("#otherNotes").value     = data.otherNotes|| "";
   const tbody = qs("#quoteTable tbody"); tbody.innerHTML = "";
 
@@ -2092,7 +2057,6 @@ document.addEventListener('DOMContentLoaded', function(){
     try { if (window.quote && (window.quote.id || window.quote.qid || window.quote.uuid)) return String(window.quote.id || window.quote.qid || window.quote.uuid); } catch(e){}
     const metaId = document.querySelector('meta[name="quote:id"]');
     if (metaId && metaId.content) return metaId.content;
-    try { const pathId = getPathQuoteId(); if (pathId) return pathId; } catch(e){}
     try { const u = new URL(window.location.href); return u.searchParams.get('qid') || u.searchParams.get('quote_id') || u.searchParams.get('id') || null; } catch(e){}
     return null;
   }
