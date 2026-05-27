@@ -94,6 +94,13 @@ function qs(sel){ return document.querySelector(sel); }
 function qsa(sel){ return document.querySelectorAll(sel); }
 function getParam(name){ try{ return new URL(location.href).searchParams.get(name) || ""; }catch(_){ return ""; } }
 function getCid(){
+  // 新版漂亮網址：/q/SHORTCODE。Cloudinary 實際 id 維持 q-SHORTCODE。
+  const pathMatch = (location.pathname || "").match(/\/q\/([^/?#]+)\/?$/i);
+  if (pathMatch) {
+    const shortCode = decodeURIComponent(pathMatch[1]);
+    return /^q-/i.test(shortCode) ? shortCode : `q-${shortCode}`;
+  }
+  // 向下相容既有 ?cid= 與 #cid= 分享連結
   const q = getParam('cid'); if (q) return q;
   const m = (location.hash||"").match(/[#&?]cid=([^&]+)/);
   return m ? decodeURIComponent(m[1]) : "";
@@ -1278,10 +1285,10 @@ async function handleConfirmSubmit(clickedBtn){
     if (clickedBtn){ clickedBtn.disabled = true; clickedBtn.textContent = "送出中…"; }
 
     let payload = collectShareData(); if (typeof window.__augmentPayloadWithPromo==='function') payload = window.__augmentPayloadWithPromo(payload);
-    let cid = null;
+    // 使用共用解析器，同時支援 /q/短代碼、後台舊式 ?cid=... 與歷史 #cid=...
     const hash = location.hash || "";
-    const cidFromHash = hash.startsWith("#cid=") ? decodeURIComponent(hash.replace("#cid=","")) : "";
-    if (cidFromHash) { cid = cidFromHash; payload.cloudinaryId = cid; }
+    const cid = getCid();
+    if (cid) payload.cloudinaryId = cid;
 
     const res = await fetch("/api/confirm", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
@@ -1319,7 +1326,8 @@ async function handleConfirmSubmit(clickedBtn){
       window.QUOTE_STATUS = 'confirmed';
       window.QUOTE_CONFIRMED = true;
       try{ syncFinalizedQuoteActions(); }catch(_){}
-      setTimeout(()=>{ location.href = location.pathname + "#cid=" + encodeURIComponent(cid); location.reload(); }, 300);
+      // 保留目前漂亮網址或舊式網址，不再於確認後改寫成 #cid=...
+      setTimeout(()=>{ location.reload(); }, 300);
       markLocallyLocked("locked:cid:"+cid);
     } else if (hash.startsWith("#data=")) {
       markLocallyLocked("locked:data:"+hash);
@@ -1351,7 +1359,8 @@ function escapeHtmlLineBasic(str){
 function getQuoteNoFromUrl(url){
   try{
     const u = new URL(url, location.href);
-    return u.searchParams.get('cid') || u.hash.replace(/^#cid=/,'') || '';
+    const route = u.pathname.match(/\/q\/([^/?#]+)\/?$/i);
+    return route ? decodeURIComponent(route[1]) : (u.searchParams.get('cid') || u.hash.replace(/^#cid=/,'') || '');
   }catch(_){ return ''; }
 }
 function buildLineQuoteMessage(shareUrl){
