@@ -118,8 +118,11 @@ export async function handler(event) {
 
 function buildSiteLink(event, id){
   const base = getBaseUrl(event) || (process.env.SITE_BASE_URL || "");
-  const u = (base || "/").replace(/\/+$/,"/");
-  return u + `?cid=${encodeURIComponent(id)}`;
+  const u = (base || "").replace(/\/+$/, "");
+  const shortCode = String(id || "").replace(/^q-/i, "");
+  // 新版日期流水號直接置於根路徑；既有隨機短碼仍保留 /q/ 開啟相容性。
+  if (/^\d{8}-\d{3,}$/.test(shortCode)) return `${u}/${encodeURIComponent(shortCode)}`;
+  return `${u}/q/${encodeURIComponent(shortCode)}`;
 }
 
 function json(status, obj){ return { statusCode: status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) }; }

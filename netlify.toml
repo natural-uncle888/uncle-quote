@@ -2,6 +2,20 @@
   node_bundler = "esbuild"
   external_node_modules = []
 
+# 顧客分享用日期流水號網址，例如 /20260527-001
+# 僅攔截以 20 開頭的根路徑，避免影響 /app.js、/quotes.html 等靜態檔案。
+[[redirects]]
+  from = "/20*"
+  to   = "/index.html"
+  status = 200
+
+# 相容上一版漂亮短網址，例如 /q/ABCD2345EFGH
+[[redirects]]
+  from = "/q/*"
+  to   = "/index.html"
+  status = 200
+
+
 [[redirects]]
   from = "/api/view"
   to   = "/.netlify/functions/view"

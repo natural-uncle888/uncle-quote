@@ -94,7 +94,11 @@ function qs(sel){ return document.querySelector(sel); }
 function qsa(sel){ return document.querySelectorAll(sel); }
 function getParam(name){ try{ return new URL(location.href).searchParams.get(name) || ""; }catch(_){ return ""; } }
 function getCid(){
-  // 新版漂亮網址：/q/SHORTCODE。Cloudinary 實際 id 維持 q-SHORTCODE。
+  // 新版日期流水號網址：/YYYYMMDD-001。Cloudinary 實際 id 維持 q- 前綴。
+  const datedMatch = (location.pathname || "").match(/^\/(\d{8}-\d{3,})\/?$/);
+  if (datedMatch) return `q-${decodeURIComponent(datedMatch[1])}`;
+
+  // 相容上一版漂亮短網址：/q/SHORTCODE。
   const pathMatch = (location.pathname || "").match(/\/q\/([^/?#]+)\/?$/i);
   if (pathMatch) {
     const shortCode = decodeURIComponent(pathMatch[1]);
@@ -1446,15 +1450,8 @@ async function handleShareClick(){
     if(!res.ok){ const t = await res.text().catch(()=> ''); alert("產生連結失敗：" + (t||("HTTP "+res.status))); return; }
     const raw = await res.text();
     let data; try{ data = JSON.parse(raw); }catch(_){ data = {}; }
-    const href = data.share_url || data.pdf_url || "#";
-    
-    // Append tax preference as query param to the share link
-    try {
-      const taxOn = qs('#toggleTax')?.checked === true;
-      const urlObj = new URL(href, location.href);
-      urlObj.searchParams.set('tax', taxOn ? '1' : '0');
-      var hrefWithTax = urlObj.toString();
-    } catch(_) { var hrefWithTax = href; }
+    // 含稅設定已儲存在報價資料中，分享網址本身維持乾淨的日期流水號格式。
+    const hrefWithTax = data.share_url || data.pdf_url || "#";
     const box = qs("#shareLinkBox");
     removeClass(box, "d-none");
     box.innerHTML = `
@@ -1508,6 +1505,7 @@ function collectShareData(){
     cleanDate: (qs("#cleanDate")?.value || ""),
     cleanTime: qs("#cleanFull").textContent,
     otherNotes:qs("#otherNotes").value,
+    taxIncluded: qs("#toggleTax")?.checked === true,
     items, total: (function(){ try{ let sum=0; qsa("#quoteTable tbody tr").forEach(tr=>{ const v=parseInt(tr.querySelector(".subtotal")?.textContent||"0",10); sum+=isNaN(v)?0:v; }); return String(sum);}catch(_){return "0";} })()
   };
 }
@@ -1638,6 +1636,16 @@ function setReadonlyButtonsVisibility(canConfirm){
    套用唯讀資料
 ===================== */
 function applyReadOnlyData(data){
+  // 新版連結不帶 tax 參數；含稅顯示直接依報價資料還原。舊報價仍可沿用網址參數。
+  try {
+    if (typeof data.taxIncluded === 'boolean') {
+      const toggle = qs('#toggleTax');
+      const group = toggle?.closest('.form-check') || qs('#taxToggleGroup');
+      if (toggle) toggle.checked = data.taxIncluded;
+      if (group) group.classList.add('d-none');
+    }
+  } catch (_) {}
+
   // 報價日期：新版優先使用 quoteIssuedAt；舊版則從 quoteInfo 文字回推。
   try{
     const qi = qs("#quoteInfo");
