@@ -2,6 +2,18 @@
   node_bundler = "esbuild"
   external_node_modules = []
 
+# PWA 分開安裝用路徑：讓報價單 App 與管理 App 有不同 scope，手機才能分成兩個 icon。
+[[redirects]]
+  from = "/quote/*"
+  to   = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/*"
+  to   = "/quotes.html"
+  status = 200
+
+
 # 顧客分享用日期流水號網址，例如 /20260527-001
 # 僅攔截以 20 開頭的根路徑，避免影響 /app.js、/quotes.html 等靜態檔案。
 [[redirects]]

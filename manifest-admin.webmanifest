@@ -1,10 +1,10 @@
 {
-  "id": "/pwa/quote-admin-app",
+  "id": "/admin/",
   "name": "大叔(報)管理",
-  "short_name": "大叔(報)管理",
+  "short_name": "大叔管理",
   "description": "自然大叔報價單管理列表：查看、搜尋、篩選與管理報價單。",
-  "start_url": "/quotes.html?source=pwa",
-  "scope": "/",
+  "start_url": "/admin/?source=pwa-admin",
+  "scope": "/admin/",
   "display": "standalone",
   "display_override": [
     "standalone",
@@ -31,7 +31,7 @@
     {
       "name": "建立報價單",
       "short_name": "報價單",
-      "url": "/",
+      "url": "/quote/",
       "icons": [
         {
           "src": "/icons/quote-192.png",

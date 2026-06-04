@@ -1,10 +1,12 @@
 // 自然大叔報價單 PWA Service Worker
 // 目的：讓 index.html 與 quotes.html 可以被手機瀏覽器加入主畫面，並支援基本離線外殼快取。
-const CACHE_NAME = 'uncle-quote-pwa-v1';
+const CACHE_NAME = 'uncle-quote-pwa-v2-separate-scopes';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/quotes.html',
+  '/quote/',
+  '/admin/',
   '/app.js',
   '/manifest-quote.webmanifest',
   '/manifest-admin.webmanifest',
@@ -51,7 +53,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
           return res;
         })
-        .catch(() => caches.match(req).then((cached) => cached || caches.match('/index.html')))
+        .catch(() => caches.match(req).then((cached) => cached || caches.match(url.pathname.startsWith('/admin/') ? '/quotes.html' : '/index.html')))
     );
     return;
   }

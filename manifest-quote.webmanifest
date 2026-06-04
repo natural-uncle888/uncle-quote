@@ -1,10 +1,10 @@
 {
-  "id": "/pwa/quote-app",
+  "id": "/quote/",
   "name": "大叔報價",
   "short_name": "大叔報價",
   "description": "自然大叔線上報價單：快速查看清洗服務內容、預約資訊與報價金額。",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "start_url": "/quote/?source=pwa-quote",
+  "scope": "/quote/",
   "display": "standalone",
   "display_override": [
     "standalone",
@@ -31,7 +31,7 @@
     {
       "name": "開啟報價單管理",
       "short_name": "管理",
-      "url": "/quotes.html",
+      "url": "/admin/",
       "icons": [
         {
           "src": "/icons/admin-192.png",
