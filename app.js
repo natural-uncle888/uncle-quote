@@ -1074,15 +1074,13 @@ function updateTotals(){
       }else{
         box.classList.remove('d-none');
         const rows = entries.map(([label, info])=> 
-          `<div class="d-flex justify-content-between"><span>${label}</span><span>NT$ ${info.amount}（${info.count} 項）</span></div>`
+          `<div class="category-total-row"><span>${label}</span><span class="category-total-amount">NT$ ${info.amount}（${info.count} 項）</span></div>`
         ).join('');
         box.innerHTML = `
-          <div class="card bg-light border-0">
-            <div class="card-body py-2">
-              <div class="small fw-semibold mb-1">類別小計</div>
-              <div class="small d-flex flex-column gap-1">
-                ${rows}
-              </div>
+          <div class="category-total-card">
+            <div class="category-total-title">服務分類金額</div>
+            <div class="category-total-list">
+              ${rows}
             </div>
           </div>`;
       }

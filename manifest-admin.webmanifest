@@ -1,0 +1,44 @@
+{
+  "id": "/pwa/quote-admin-app",
+  "name": "大叔(報)管理",
+  "short_name": "大叔(報)管理",
+  "description": "自然大叔報價單管理列表：查看、搜尋、篩選與管理報價單。",
+  "start_url": "/quotes.html?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#f7f7fb",
+  "theme_color": "#064e3b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/admin-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/admin-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "建立報價單",
+      "short_name": "報價單",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/quote-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

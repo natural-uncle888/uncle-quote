@@ -1,0 +1,44 @@
+{
+  "id": "/pwa/quote-app",
+  "name": "大叔報價",
+  "short_name": "大叔報價",
+  "description": "自然大叔線上報價單：快速查看清洗服務內容、預約資訊與報價金額。",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#f8fafc",
+  "theme_color": "#14532d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/quote-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/quote-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "開啟報價單管理",
+      "short_name": "管理",
+      "url": "/quotes.html",
+      "icons": [
+        {
+          "src": "/icons/admin-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
