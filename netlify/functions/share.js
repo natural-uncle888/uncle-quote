@@ -16,7 +16,7 @@ export async function handler(event){
 
     if (!cloud || !apiKey || !apiSecret) return resp(500, "Missing Cloudinary config");
 
-    const dateKey = taipeiDateKey();
+    const dateKey = quoteDateKeyFromBody(body) || taipeiDateKey();
     let sequence = await findNextSequence({ cloud, apiKey, apiSecret, folder: FOLDER, dateKey });
     const fileData = Buffer.from(JSON.stringify(body, null, 2)).toString("base64");
 
@@ -42,6 +42,25 @@ export async function handler(event){
   }catch(e){
     return json(500, { error: String(e?.message || e) });
   }
+}
+
+function quoteDateKeyFromBody(body){
+  const raw = String(body?.quoteIssuedAt || "").trim();
+
+  // 優先用前端「報價日期」產生網址日期，支援 yyyy-mm-dd 或 yyyy/mm/dd。
+  const match = raw.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if (!match) return "";
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  // 基本防呆：避免異常字串被拿來產生網址。
+  if (year < 2000 || year > 2100) return "";
+  if (month < 1 || month > 12) return "";
+  if (day < 1 || day > 31) return "";
+
+  return `${String(year)}${String(month).padStart(2, "0")}${String(day).padStart(2, "0")}`;
 }
 
 function taipeiDateKey(){
