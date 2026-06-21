@@ -9,7 +9,10 @@ exports.handler = async (event) => {
     const payload = JSON.parse(event.body || "{}");
     const SITE_BASE_URL = process.env.SITE_BASE_URL || "";
     const mailResult = await maybeSendEmail(payload, SITE_BASE_URL);
-    return json(200, { ok:true, ...mailResult });
+    const lineResult = await maybeSendLine(payload, SITE_BASE_URL, mailResult);
+
+    // 注意：Email / LINE 只是通知用途，不讓通知失敗影響顧客「同意報價」流程。
+    return json(200, { ok:true, ...mailResult, ...lineResult });
   }catch(e){
     return json(500, { ok:false, error: String(e && e.message || e) });
   }
@@ -69,6 +72,103 @@ async function maybeSendEmail(payload, siteBase){
   }
 
   return { mail_ok:false, mail_provider:null, mail_response:"未設定 RESEND_API_KEY 或 BREVO_API_KEY" };
+
+}
+
+/* ======================= LINE Messaging API 通知 ======================= */
+async function maybeSendLine(payload, siteBase, mailResult){
+  const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_ACCESS_TOKEN || "").trim();
+  const toRaw = (process.env.LINE_ADMIN_USER_ID || process.env.LINE_TO_ID || process.env.LINE_USER_ID || process.env.LINE_GROUP_ID || "").trim();
+
+  if (!token || !toRaw) {
+    return {
+      line_ok:false,
+      line_provider:null,
+      line_response:"LINE_CHANNEL_ACCESS_TOKEN 與 LINE_ADMIN_USER_ID 未設定，略過 LINE 通知"
+    };
+  }
+
+  const targets = toRaw.split(",").map(s => s.trim()).filter(Boolean);
+  const text = buildLineConfirmText(payload, siteBase, mailResult);
+  const results = [];
+  let okCount = 0;
+
+  for (const to of targets) {
+    try{
+      const r = await fetch("https://api.line.me/v2/bot/message/push", {
+        method:"POST",
+        headers:{
+          "Authorization": `Bearer ${token}`,
+          "Content-Type":"application/json"
+        },
+        body: JSON.stringify({
+          to,
+          messages:[{ type:"text", text }]
+        })
+      });
+      const body = await safeText(r);
+      if (r.ok) okCount += 1;
+      results.push({ to: maskLineTarget(to), ok:r.ok, status:r.status, response:body });
+    }catch(e){
+      results.push({ to: maskLineTarget(to), ok:false, status:0, response:String(e && e.message || e) });
+    }
+  }
+
+  return {
+    line_ok: okCount > 0,
+    line_provider:"line_messaging_api",
+    line_response: results
+  };
+}
+
+function buildLineConfirmText(p, siteBase, mailResult){
+  const comp = (p && p.promo && p.promo.computed) || {};
+  const grand = toNum(comp.grandTotal, p && p.total);
+  const items = Array.isArray(p.items) ? p.items : [];
+  const itemLines = items.slice(0, 8).map((it, i) => {
+    const name = String(it.service || "未填項目").trim();
+    const opt = String(it.option || "").trim();
+    const qty = String(it.qty || "1").trim();
+    const sub = fmt(toNum(it.subtotal, toNum(it.qty) * toNum(it.price)));
+    return `${i+1}. ${name}${opt ? `｜${opt}` : ""} x${qty}＝${sub}`;
+  });
+
+  if (items.length > 8) itemLines.push(`…另有 ${items.length - 8} 項`);
+
+  const id = String(p.cloudinaryId || p.short_code || "").trim();
+  const base = String(siteBase || "").replace(/\/+$/, "");
+  const url = id && base ? `${base}/${encodeURIComponent(id.replace(/^q-/, ""))}` : "";
+
+  const mailStatus = mailResult && mailResult.mail_ok
+    ? `Email：成功（${mailResult.mail_provider || "unknown"}）`
+    : `Email：失敗/未寄出（${(mailResult && mailResult.mail_provider) || "none"}）`;
+
+  return [
+    "✅ 客戶已同意報價",
+    "",
+    `客戶：${String(p.customer || "未填").trim()}`,
+    `電話：${String(p.phone || "未填").trim()}`,
+    `地址：${formatAddressForText(p.address) || "未填"}`,
+    `預約：${String(p.cleanTime || "尚未排定").trim()}`,
+    `合計：${fmt(grand)} 元`,
+    "",
+    itemLines.length ? "項目：" : "項目：未填",
+    ...itemLines,
+    "",
+    mailStatus,
+    url ? `報價單：${url}` : ""
+  ].filter(Boolean).join("\n").slice(0, 4900);
+}
+
+function formatAddressForText(addr){
+  if (Array.isArray(addr)) return addr.map(s=>String(s||"").trim()).filter(Boolean).join(" / ");
+  return String(addr || "").split(/\r?\n/).map(s=>s.trim()).filter(Boolean).join(" / ");
+}
+
+function maskLineTarget(s){
+  s = String(s || "");
+  if (s.length <= 10) return s;
+  return `${s.slice(0, 4)}...${s.slice(-4)}`;
 }
 
 /* ======================= HTML Template（行動裝置優化） ======================= */
