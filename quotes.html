@@ -69,6 +69,24 @@
       font-size:.85rem;
       color:#6c757d;
     }
+    .settings-section-title{
+      font-weight:800;
+      color:#0f172a;
+    }
+    .setting-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:1rem;
+      padding:1rem 0;
+      border-bottom:1px solid #eef2f7;
+    }
+    .setting-row:last-child{ border-bottom:0; }
+    .setting-help{ color:#64748b; font-size:.9rem; margin-top:.15rem; }
+    .settings-status{ min-height:1.5rem; }
+    @media (max-width:576px){
+      .setting-row{ align-items:flex-start; flex-direction:column; }
+    }
 </style>
 
 <style>
@@ -92,6 +110,17 @@
 
   <div class="card">
     <div class="card-body">
+      <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="quotes-tab" data-bs-toggle="tab" data-bs-target="#quotesPane" type="button" role="tab" aria-controls="quotesPane" aria-selected="true">報價單列表</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="notify-tab" data-bs-toggle="tab" data-bs-target="#notifyPane" type="button" role="tab" aria-controls="notifyPane" aria-selected="false">通知設定</button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="adminTabsContent">
+        <div class="tab-pane fade show active" id="quotesPane" role="tabpanel" aria-labelledby="quotes-tab" tabindex="0">
       <div class="row g-2 mb-3">
         <div class="col-sm-5 col-md-4">
           <input id="q" class="form-control" placeholder="搜尋 客戶 / 電話 / 地址 / 技師 / ID">
@@ -160,6 +189,107 @@
       </div>
       <div class="d-flex justify-content-center mt-3">
         <button id="moreBtn" class="btn btn-outline-primary d-none">載入更多</button>
+      </div>
+        </div>
+
+        <div class="tab-pane fade" id="notifyPane" role="tabpanel" aria-labelledby="notify-tab" tabindex="0">
+          <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-3">
+            <div>
+              <h2 class="h5 settings-section-title mb-1">通知設定</h2>
+              <div class="text-muted small">設定會儲存在雲端，會影響顧客確認與案件刪除通知。</div>
+            </div>
+            <div class="d-flex gap-2 align-items-start">
+              <button id="reloadNotifySettings" type="button" class="btn btn-outline-secondary btn-sm">重新讀取</button>
+              <button id="saveNotifySettings" type="button" class="btn btn-primary btn-sm">儲存設定</button>
+            </div>
+          </div>
+
+          <div id="notifySettingsStatus" class="settings-status small text-muted mb-2">載入通知設定中…</div>
+
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="border rounded-4 p-3 h-100 bg-white">
+                <h3 class="h6 settings-section-title mb-2">通知總開關</h3>
+                <div class="setting-row">
+                  <div>
+                    <div class="fw-semibold">Brevo Email 通知總開關</div>
+                    <div class="setting-help">關閉後，所有 Email 類型通知都不會寄出。</div>
+                  </div>
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input notify-setting" type="checkbox" role="switch" id="notifyEmailMaster" data-setting="emailMaster">
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <div>
+                    <div class="fw-semibold">LINE 推播通知總開關</div>
+                    <div class="setting-help">關閉後，所有 LINE 推播都不會送出。</div>
+                  </div>
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input notify-setting" type="checkbox" role="switch" id="notifyLineMaster" data-setting="lineMaster">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="border rounded-4 p-3 h-100 bg-white">
+                <h3 class="h6 settings-section-title mb-2">事件通知</h3>
+                <div class="setting-row">
+                  <div>
+                    <div class="fw-semibold">報價確認通知：Email</div>
+                    <div class="setting-help">顧客按下「我同意此報價」後寄出 Email。</div>
+                  </div>
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input notify-setting" type="checkbox" role="switch" id="notifyNewBookingEmail" data-setting="newBookingEmail">
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <div>
+                    <div class="fw-semibold">報價確認通知：LINE</div>
+                    <div class="setting-help">顧客確認報價後推播 LINE。</div>
+                  </div>
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input notify-setting" type="checkbox" role="switch" id="notifyNewBookingLine" data-setting="newBookingLine">
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <div>
+                    <div class="fw-semibold">刪除報價單通知：Email</div>
+                    <div class="setting-help">從總覽刪除報價單後寄出 Email 紀錄。</div>
+                  </div>
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input notify-setting" type="checkbox" role="switch" id="notifyCaseDeleteEmail" data-setting="caseDeleteEmail">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="border rounded-4 p-3 bg-white">
+                <h3 class="h6 settings-section-title mb-2">LINE 夜間靜音模式</h3>
+                <div class="setting-row">
+                  <div>
+                    <div class="fw-semibold">LINE 夜間靜音模式</div>
+                    <div class="setting-help">開啟後，靜音時間內不會送出 LINE 推播。預設 22:00 ～ 08:00。</div>
+                  </div>
+                  <div class="form-check form-switch m-0">
+                    <input class="form-check-input notify-setting" type="checkbox" role="switch" id="notifyLineQuietMode" data-setting="lineQuietMode">
+                  </div>
+                </div>
+                <div class="row g-2 mt-2">
+                  <div class="col-sm-6 col-md-3">
+                    <label for="quietStart" class="form-label small text-muted mb-1">靜音開始</label>
+                    <input id="quietStart" type="time" class="form-control notify-setting-value" data-setting="quietStart" value="22:00">
+                  </div>
+                  <div class="col-sm-6 col-md-3">
+                    <label for="quietEnd" class="form-label small text-muted mb-1">靜音結束</label>
+                    <input id="quietEnd" type="time" class="form-control notify-setting-value" data-setting="quietEnd" value="08:00">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -608,9 +738,94 @@ document.addEventListener('DOMContentLoaded', ()=>{
     endInp.classList.toggle('d-none', !isCustom);
   }
   $('#exportCsv')?.addEventListener('click', exportCsv);
+  $('#reloadNotifySettings')?.addEventListener('click', loadNotifySettings);
+  $('#saveNotifySettings')?.addEventListener('click', saveNotifySettings);
+  loadNotifySettings();
 
   load();
 });
+
+
+
+const NOTIFY_DEFAULTS = {
+  emailMaster: true,
+  lineMaster: true,
+  newBookingEmail: true,
+  newBookingLine: true,
+  caseDeleteEmail: true,
+  lineQuietMode: false,
+  quietStart: "22:00",
+  quietEnd: "08:00"
+};
+
+function notifySettingsUrl(){
+  return new URL("/.netlify/functions/notification-settings", ORIGIN);
+}
+function setNotifyStatus(text, type="muted"){
+  const el = $("#notifySettingsStatus");
+  if (!el) return;
+  el.className = "settings-status small mb-2 text-" + type;
+  el.textContent = text || "";
+}
+function readNotifyForm(){
+  const settings = { ...NOTIFY_DEFAULTS };
+  $$(".notify-setting").forEach(input=>{
+    const key = input.getAttribute("data-setting");
+    if (key) settings[key] = !!input.checked;
+  });
+  $$(".notify-setting-value").forEach(input=>{
+    const key = input.getAttribute("data-setting");
+    if (key) settings[key] = input.value || NOTIFY_DEFAULTS[key];
+  });
+  return settings;
+}
+function applyNotifyForm(settings){
+  const s = { ...NOTIFY_DEFAULTS, ...(settings || {}) };
+  $$(".notify-setting").forEach(input=>{
+    const key = input.getAttribute("data-setting");
+    if (key) input.checked = !!s[key];
+  });
+  $$(".notify-setting-value").forEach(input=>{
+    const key = input.getAttribute("data-setting");
+    if (key) input.value = s[key] || NOTIFY_DEFAULTS[key] || "";
+  });
+}
+async function loadNotifySettings(){
+  try{
+    setNotifyStatus("載入通知設定中…", "muted");
+    const r = await fetch(notifySettingsUrl(), { cache:"no-store" });
+    const data = await r.json().catch(()=>({}));
+    if (!r.ok || data.ok === false) throw new Error(data.error || ("讀取失敗：" + r.status));
+    applyNotifyForm(data.settings || NOTIFY_DEFAULTS);
+    setNotifyStatus("已載入通知設定。", "success");
+  }catch(e){
+    console.error(e);
+    applyNotifyForm(NOTIFY_DEFAULTS);
+    setNotifyStatus("讀取通知設定失敗，已先顯示預設值。請確認 notification-settings Function 已部署。", "danger");
+  }
+}
+async function saveNotifySettings(){
+  try{
+    const btn = $("#saveNotifySettings");
+    if (btn) btn.disabled = true;
+    setNotifyStatus("儲存通知設定中…", "muted");
+    const r = await fetch(notifySettingsUrl(), {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ settings: readNotifyForm() })
+    });
+    const data = await r.json().catch(()=>({}));
+    if (!r.ok || data.ok === false) throw new Error(data.error || ("儲存失敗：" + r.status));
+    applyNotifyForm(data.settings || readNotifyForm());
+    setNotifyStatus("通知設定已儲存，後端通知會依照這些開關執行。", "success");
+  }catch(e){
+    console.error(e);
+    setNotifyStatus("儲存通知設定失敗：" + String(e && e.message || e), "danger");
+  }finally{
+    const btn = $("#saveNotifySettings");
+    if (btn) btn.disabled = false;
+  }
+}
 
 function exportCsv(){
   const rows = $$("#rows tr").filter(tr => !tr.classList.contains("d-none") && tr.querySelector(".id-mono"));

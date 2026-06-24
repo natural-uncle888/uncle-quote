@@ -8,8 +8,9 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") return resp(405, "Method Not Allowed");
     const payload = JSON.parse(event.body || "{}");
     const SITE_BASE_URL = process.env.SITE_BASE_URL || "";
-    const mailResult = await maybeSendEmail(payload, SITE_BASE_URL);
-    const lineResult = await maybeSendLine(payload, SITE_BASE_URL, mailResult);
+    const notifySettings = await readNotificationSettings();
+    const mailResult = await maybeSendEmail(payload, SITE_BASE_URL, notifySettings);
+    const lineResult = await maybeSendLine(payload, SITE_BASE_URL, mailResult, notifySettings);
 
     // 注意：Email / LINE 只是通知用途，不讓通知失敗影響顧客「同意報價」流程。
     return json(200, { ok:true, ...mailResult, ...lineResult });
@@ -19,7 +20,10 @@ exports.handler = async (event) => {
 };
 
 /* ======================= Email ======================= */
-async function maybeSendEmail(payload, siteBase){
+async function maybeSendEmail(payload, siteBase, notifySettings){
+  if (!shouldSendNewBookingEmail(notifySettings)) {
+    return { mail_ok:false, mail_provider:null, mail_response:"新預約 Email 通知已關閉" };
+  }
   const FROM = (process.env.FROM_EMAIL || process.env.EMAIL_FROM || "").trim();
   const TO = (process.env.TO_EMAIL || process.env.EMAIL_TO || "").trim();
   const SENDER_NAME = process.env.SENDER_NAME || process.env.EMAIL_SENDER_NAME || "";
@@ -76,7 +80,13 @@ async function maybeSendEmail(payload, siteBase){
 }
 
 /* ======================= LINE Messaging API 通知 ======================= */
-async function maybeSendLine(payload, siteBase, mailResult){
+async function maybeSendLine(payload, siteBase, mailResult, notifySettings){
+  if (!shouldSendNewBookingLine(notifySettings)) {
+    return { line_ok:false, line_provider:null, line_response:"新預約 LINE 通知已關閉" };
+  }
+  if (isLineQuietNow(notifySettings)) {
+    return { line_ok:false, line_provider:"line_messaging_api", line_response:`LINE 夜間靜音模式中（${notifySettings.quietStart || "22:00"}～${notifySettings.quietEnd || "08:00"}），略過推播` };
+  }
   const token = (process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_ACCESS_TOKEN || "").trim();
   const toRaw = (process.env.LINE_ADMIN_USER_ID || process.env.LINE_TO_ID || process.env.LINE_USER_ID || process.env.LINE_GROUP_ID || "").trim();
 
@@ -170,6 +180,78 @@ function maskLineTarget(s){
   if (s.length <= 10) return s;
   return `${s.slice(0, 4)}...${s.slice(-4)}`;
 }
+
+
+/* ======================= Notification Settings ======================= */
+const DEFAULT_NOTIFY_SETTINGS = {
+  emailMaster: true,
+  lineMaster: true,
+  newBookingEmail: true,
+  newBookingLine: true,
+  caseDeleteEmail: true,
+  lineQuietMode: false,
+  quietStart: "22:00",
+  quietEnd: "08:00"
+};
+
+async function readNotificationSettings(){
+  const cloud = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const folder = process.env.CLOUDINARY_FOLDER || "quotes";
+  if (!cloud || !apiKey || !apiSecret) return { ...DEFAULT_NOTIFY_SETTINGS };
+  const publicId = `${folder}/notification-settings`;
+  const auth = "Basic " + Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
+  try{
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/resources/search`, {
+      method:"POST",
+      headers:{ Authorization:auth, "Content-Type":"application/json", "Cache-Control":"no-store" },
+      body:JSON.stringify({ expression:`public_id="${escapeCloudinaryExpr(publicId)}" AND resource_type=raw`, max_results:1 })
+    });
+    if (!response.ok) return { ...DEFAULT_NOTIFY_SETTINGS };
+    const data = await response.json().catch(()=>({}));
+    const url = data.resources?.[0]?.secure_url;
+    if (!url) return { ...DEFAULT_NOTIFY_SETTINGS };
+    const file = await fetch(url, { cache:"no-store" });
+    if (!file.ok) return { ...DEFAULT_NOTIFY_SETTINGS };
+    const loaded = await file.json().catch(()=>({}));
+    return normalizeNotifySettings(loaded);
+  }catch(_){
+    return { ...DEFAULT_NOTIFY_SETTINGS };
+  }
+}
+function normalizeNotifySettings(input){
+  const out = { ...DEFAULT_NOTIFY_SETTINGS };
+  const boolKeys = ["emailMaster","lineMaster","newBookingEmail","newBookingLine","caseDeleteEmail","lineQuietMode"];
+  for (const key of boolKeys){
+    if (Object.prototype.hasOwnProperty.call(input || {}, key)) out[key] = Boolean(input[key]);
+  }
+  out.quietStart = /^\d{2}:\d{2}$/.test(String(input?.quietStart || "")) ? String(input.quietStart) : DEFAULT_NOTIFY_SETTINGS.quietStart;
+  out.quietEnd = /^\d{2}:\d{2}$/.test(String(input?.quietEnd || "")) ? String(input.quietEnd) : DEFAULT_NOTIFY_SETTINGS.quietEnd;
+  return out;
+}
+function shouldSendNewBookingEmail(s){ return s.emailMaster !== false && s.newBookingEmail !== false; }
+function shouldSendNewBookingLine(s){ return s.lineMaster !== false && s.newBookingLine !== false; }
+function isLineQuietNow(s){
+  if (!s || s.lineQuietMode !== true) return false;
+  const now = minutesInTaipei(new Date());
+  const start = timeToMinutes(s.quietStart || "22:00");
+  const end = timeToMinutes(s.quietEnd || "08:00");
+  if (start === end) return true;
+  if (start < end) return now >= start && now < end;
+  return now >= start || now < end;
+}
+function minutesInTaipei(date){
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone:"Asia/Taipei", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(date);
+  const map = Object.fromEntries(parts.map(p=>[p.type,p.value]));
+  return Number(map.hour || 0) * 60 + Number(map.minute || 0);
+}
+function timeToMinutes(s){
+  const m = String(s || "00:00").match(/^(\d{2}):(\d{2})$/);
+  if (!m) return 0;
+  return Math.min(23, Number(m[1])) * 60 + Math.min(59, Number(m[2]));
+}
+function escapeCloudinaryExpr(s){ return String(s || "").replace(/(["\\])/g, "\\$1"); }
 
 /* ======================= HTML Template（行動裝置優化） ======================= */
 function formatScheduleHtml(s){
