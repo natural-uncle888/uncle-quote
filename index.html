@@ -464,12 +464,45 @@ html, body { overflow-x: hidden; }
   .confirm-modal .body{padding:18px;color:#333;line-height:1.75;font-size:16px;white-space:pre-line;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
   .confirm-modal .actions{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px 18px;border-top:1px solid #e5e7eb;background:#fff;flex:0 0 auto;}
   .confirm-modal .actions .btn.primary{min-width:160px;}
+  /* 手機版採置中卡片，不再使用接近全螢幕的 bottom sheet。 */
   @media (max-width:575.98px){
-    .confirm-modal-backdrop{align-items:flex-end;padding:0;}
-    .confirm-modal{width:100%;max-width:none;max-height:92vh;border-radius:18px 18px 0 0;}
-    .confirm-modal .body{font-size:15px;padding:16px;}
-    .confirm-modal .actions{padding:12px 16px calc(16px + env(safe-area-inset-bottom));}
-    .confirm-modal .actions .btn.primary{width:100%;font-size:16px;}
+    .confirm-modal-backdrop{
+      align-items:center;
+      padding:max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+    }
+    .confirm-modal{
+      width:min(100%,430px);
+      max-width:430px;
+      max-height:72vh; /* 舊瀏覽器 fallback */
+      max-height:min(72dvh,620px);
+      border-radius:18px;
+    }
+    .confirm-modal header{
+      padding:12px 14px;
+      font-size:17px;
+      line-height:1.35;
+    }
+    .confirm-modal .body{
+      min-height:0;
+      font-size:14px;
+      line-height:1.65;
+      padding:14px;
+    }
+    .confirm-modal .actions{
+      padding:10px 14px 14px;
+    }
+    .confirm-modal .actions .btn.primary{
+      width:100%;
+      min-height:46px;
+      font-size:15px;
+    }
+  }
+  /* 較矮的手機保留足夠可操作空間，但仍不會佔滿整個畫面。 */
+  @media (max-width:575.98px) and (max-height:650px){
+    .confirm-modal{max-height:78vh;max-height:78dvh;}
+    .confirm-modal header{padding:10px 12px;font-size:16px;}
+    .confirm-modal .body{padding:12px;font-size:13.5px;line-height:1.55;}
+    .confirm-modal .actions{padding:8px 12px 12px;}
   }
   .confirm-modal .btn{padding:10px 14px;border-radius:10px;border:1px solid #ccc;background:#f8f8f8;cursor:pointer;font-size:14px;}
   .confirm-modal .btn.primary{background:#198754;color:#fff;border-color:#198754;}
@@ -1664,7 +1697,7 @@ html, body { overflow-x: hidden; }
 <div class="footer-bar"><small>© 2025 自然大叔 All Rights Reserved</small></div>
 <!-- 外部 JS：避免 CSP 擋下 inline -->
 <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script defer src="/app.js?v=20260716-confirm-notice-v2"></script>
+<script defer src="/app.js?v=20260716-confirm-notice-v3"></script>
 <script>
 // Unified mobile bottom bar logic: single source of UI/event handling
 (function() {
