@@ -1278,73 +1278,174 @@ function markLocallyLocked(key){ try{ localStorage.setItem(key, "1"); }catch(_){
 function isLocallyLocked(key){ try{ return localStorage.getItem(key)==="1"; }catch(_){ return false; } }
 
 /* =====================
+   依本次服務產生確認後注意事項
+===================== */
+function buildConfirmNotice(items = []){
+  const validItems = (Array.isArray(items) ? items : []).filter((item)=>{
+    const service = String(item?.service || '').trim();
+    const qty = Number(item?.qty || 0);
+    return service !== '' && Number.isFinite(qty) && qty > 0;
+  });
+
+  const hasService = (serviceName)=> validItems.some((item)=>
+    String(item?.service || '').trim() === serviceName
+  );
+
+  const washerItems = validItems.filter((item)=>
+    String(item?.service || '').trim() === '洗衣機清洗'
+  );
+
+  const hasAirConditioner = hasService('冷氣清洗');
+  const hasWashingMachine = washerItems.length > 0;
+  const hasUprightWashingMachine = washerItems.some((item)=>
+    String(item?.option || '').includes('直立式')
+  );
+  const hasWaterTank = hasService('水塔清洗');
+  const hasWaterPipe = hasService('自來水管清洗');
+  const sections = [];
+
+  if (hasAirConditioner){
+    sections.push(`【冷氣清洗注意事項】
+・請提前清出冷氣室內機下方及前方的作業空間，以便擺放 A 字梯與清洗設備。
+・大型衣櫃、書櫃、床或沙發等不易移動家具，不需勉強搬動，將由現場人員評估。
+・冷氣附近如有貴重物品、電器或易受潮物品，請先協助收妥。`);
+  }
+
+  if (hasWashingMachine){
+    const washerTitle = hasUprightWashingMachine
+      ? '直立式洗衣機清洗注意事項'
+      : '洗衣機清洗注意事項';
+
+    sections.push(`【${washerTitle}】
+・請先取出洗衣槽內的衣物及其他物品。
+・請清空洗衣機上方與周圍物品，保留拆裝及作業空間。
+・請保持水龍頭、插座及排水區域方便現場人員操作。
+・洗衣機周圍如有貴重或怕水物品，請先協助收妥。`);
+  }
+
+  if (hasWaterTank){
+    sections.push(`【水塔清洗注意事項】
+・請確認水塔、頂樓或設備空間的進出通道可以正常通行。
+・如有鐵門、門鎖、伸縮梯或管制區域，請提前安排開啟。
+・若社區或大樓需要向管理室登記，請提前協助通知。
+・施工期間可能需要暫停供水，建議先預留必要用水；實際情況將由現場人員說明。`);
+  }
+
+  if (hasWaterPipe){
+    sections.push(`【自來水管清洗注意事項】
+・請保持主要水龍頭、熱水器及相關設備周圍方便操作。
+・施工期間可能短暫影響用水，建議先預留必要用水。
+・如有特殊用水設備或近期更換過管線，請提前告知現場人員。`);
+  }
+
+  if (sections.length === 0){
+    sections.push(`【服務前提醒】
+・請預留適當的施工空間，並將周圍貴重或怕水物品先行收妥。
+・若現場有門禁、停車或其他進場限制，請提前與我們聯繫。`);
+  }
+
+  return [
+    '✅ 感謝您的確認，預約已完成！',
+    '',
+    '我們將依約定的日期與時間前往服務，以下是本次服務的行前準備事項：',
+    '',
+    sections.join('\n\n'),
+    '',
+    '如有日期、地址或服務內容異動，歡迎提前與我們聯繫，謝謝您的配合！',
+    '',
+    '— 自然大叔 敬上'
+  ].join('\n');
+}
+
+/* =====================
    送出「我同意此報價」
 ===================== */
 async function handleConfirmSubmit(clickedBtn){
   if (clickedBtn && clickedBtn.disabled) return;
-  const originalText = clickedBtn ? clickedBtn.textContent : "";
-  try{
-    if (clickedBtn){ clickedBtn.disabled = true; clickedBtn.textContent = "送出中…"; }
+  const originalText = clickedBtn ? clickedBtn.textContent : '';
 
-    let payload = collectShareData(); if (typeof window.__augmentPayloadWithPromo==='function') payload = window.__augmentPayloadWithPromo(payload);
+  try{
+    if (clickedBtn){
+      clickedBtn.disabled = true;
+      clickedBtn.textContent = '送出中…';
+    }
+
+    let payload = collectShareData();
+    if (typeof window.__augmentPayloadWithPromo === 'function'){
+      payload = window.__augmentPayloadWithPromo(payload);
+    }
+
+    const confirmNotice = buildConfirmNotice(payload.items || []);
+
     // 使用共用解析器，同時支援 /q/短代碼、後台舊式 ?cid=... 與歷史 #cid=...
-    const hash = location.hash || "";
+    const hash = location.hash || '';
     const cid = getCid();
     if (cid) payload.cloudinaryId = cid;
 
-    const res = await fetch("/api/confirm", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+    const res = await fetch('/api/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
-    if(!res.ok){
-      const t = await res.text(); alert("送出失敗：" + t);
-      if (clickedBtn){ clickedBtn.disabled = false; clickedBtn.textContent = originalText; }
+
+    if (!res.ok){
+      const message = await res.text();
+      alert('送出失敗：' + message);
+      if (clickedBtn){
+        clickedBtn.disabled = false;
+        clickedBtn.textContent = originalText;
+      }
       return;
     }
+
     await res.json();
 
-    
-      window.__confirmModalShow && window.__confirmModalShow(`✅ 感謝您的確認，我們明日見囉！😊
+    if (cid){
+      const lockRes = await fetch('/api/lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: cid })
+      });
 
-為確保清洗順利進行，煩請提前清出冷氣室內機下方空間，以便擺放 A 字梯。
+      if (!lockRes.ok){
+        console.error('報價封存失敗：', await lockRes.text());
+        alert('已收到您的確認，但報價封存狀態更新失敗，請與我們聯繫。');
+        if (clickedBtn){
+          clickedBtn.disabled = false;
+          clickedBtn.textContent = originalText;
+        }
+        return;
+      }
 
-若下方為以下家具，將由現場人員視情況協助判斷是否可移動，敬請見諒：
-・大型衣櫃、書櫃等重物
-・無法移動之床或沙發
-・其他無法暫移之家具
-
-如有異動也歡迎提前與我們聯繫，謝謝您配合！
-
-— 自然大叔 敬上`);
-    
-
-    if (cid) {
-      try{
-        await fetch("/api/lock", {
-          method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ id: cid })
-        });
-      }catch(_){}
       window.QUOTE_LOCKED = true;
       window.QUOTE_STATUS = 'confirmed';
       window.QUOTE_CONFIRMED = true;
+      markLocallyLocked('locked:cid:' + cid);
+
       try{ syncFinalizedQuoteActions(); }catch(_){}
-      // 保留目前漂亮網址或舊式網址，不再於確認後改寫成 #cid=...
-      setTimeout(()=>{ location.reload(); }, 300);
-      markLocallyLocked("locked:cid:"+cid);
-    } else if (hash.startsWith("#data=")) {
-      markLocallyLocked("locked:data:"+hash);
+      try{ updateSummaryCard(); }catch(_){}
+    } else if (hash.startsWith('#data=')){
+      markLocallyLocked('locked:data:' + hash);
       window.QUOTE_LOCKED = true;
       window.QUOTE_STATUS = 'confirmed';
       window.QUOTE_CONFIRMED = true;
+
       try{ syncFinalizedQuoteActions(); }catch(_){}
-      const btn = qs("#confirmBtnDesktop");
-      if (btn){ btn.textContent = "已送出同意"; btn.disabled = true; }
+      try{ updateSummaryCard(); }catch(_){}
+    }
+
+    // 不再使用固定時間重新整理；讓顧客閱讀完後自行關閉。
+    if (typeof window.__confirmModalShow === 'function'){
+      window.__confirmModalShow(confirmNotice);
     }
 
   }catch(err){
     console.error(err);
-    alert("送出失敗，請稍後再試。");
-    if (clickedBtn){ clickedBtn.disabled = false; clickedBtn.textContent = originalText; }
+    alert('送出失敗，請稍後再試。');
+    if (clickedBtn){
+      clickedBtn.disabled = false;
+      clickedBtn.textContent = originalText;
+    }
   }
 }
 qs('#confirmBtnDesktop')?.addEventListener('click', function(){ handleConfirmSubmit(this); });
@@ -1929,7 +2030,6 @@ applyReadOnlyData(data);
         window.QUOTE_STATUS = (window.__QUOTE_CANCELLED__ ? 'cancelled' : 'confirmed');
         window.QUOTE_CONFIRMED = !window.__QUOTE_CANCELLED__;
         try{ syncFinalizedQuoteActions(); }catch(_){}
-        if (!window.__QUOTE_CANCELLED__ && typeof window.__confirmModalShow === 'function') window.__confirmModalShow(window.QUOTE_REASON || '');
     }
       return;
     }catch(e){
