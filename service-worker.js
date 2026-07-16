@@ -1,13 +1,13 @@
 // 自然大叔報價單 PWA Service Worker
 // 目的：讓 index.html 與 quotes.html 可以被手機瀏覽器加入主畫面，並支援基本離線外殼快取。
-const CACHE_NAME = 'uncle-quote-pwa-v4-notification-settings';
+const CACHE_NAME = 'uncle-quote-pwa-v5-confirm-notice-20260716';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/quotes.html',
   '/quote/',
   '/admin/',
-  '/app.js',
+  '/app.js?v=20260716-confirm-notice-v2',
   '/manifest-quote.webmanifest',
   '/manifest-admin.webmanifest',
   '/icons/quote-192.png',
@@ -58,7 +58,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 靜態檔案採 cache-first，加快從主畫面開啟速度。
+  // 核心程式碼採 network-first，避免手機持續執行舊版 app.js。
+  if (url.origin === self.location.origin && (url.pathname === '/app.js' || url.pathname === '/service-worker.js')) {
+    event.respondWith(
+      fetch(req, { cache: 'no-store' })
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // 圖示與 manifest 等其餘靜態檔案採 cache-first。
   event.respondWith(
     caches.match(req).then((cached) => cached || fetch(req).then((res) => {
       const copy = res.clone();

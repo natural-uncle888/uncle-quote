@@ -1280,39 +1280,66 @@ function isLocallyLocked(key){ try{ return localStorage.getItem(key)==="1"; }cat
 /* =====================
    依本次服務產生確認後注意事項
 ===================== */
+function normalizeServiceText(value){
+  return String(value ?? '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s\u3000]+/g, '')
+    .replace(/[()（）【】\[\]「」『』／/、，,。．.・\-_]/g, '');
+}
+
+function classifyConfirmNoticeService(item = {}){
+  const serviceText = normalizeServiceText(item.service);
+  const optionText = normalizeServiceText(item.option);
+  const combinedText = serviceText + optionText;
+
+  const isWashingMachine = /(洗衣機|洗衣槽|洗衣)/.test(combinedText);
+
+  return {
+    airConditioner: /(冷氣|空調|分離式|壁掛式|吊隱式|隱藏式|冷氣防霉)/.test(combinedText),
+    washingMachine: isWashingMachine,
+    uprightWashingMachine: isWashingMachine && /(直立式|直立型)/.test(combinedText),
+    waterTank: /(水塔|蓄水池)/.test(combinedText),
+    waterPipe: /(自來水管|水管清洗|管線清洗|自來水管線)/.test(combinedText)
+  };
+}
+
 function buildConfirmNotice(items = []){
   const validItems = (Array.isArray(items) ? items : []).filter((item)=>{
     const service = String(item?.service || '').trim();
+    const option = String(item?.option || '').trim();
     const qty = Number(item?.qty || 0);
-    return service !== '' && Number.isFinite(qty) && qty > 0;
+    return (service !== '' || option !== '') && Number.isFinite(qty) && qty > 0;
   });
 
-  const hasService = (serviceName)=> validItems.some((item)=>
-    String(item?.service || '').trim() === serviceName
-  );
+  const detected = validItems.reduce((result, item)=>{
+    const kind = classifyConfirmNoticeService(item);
+    Object.keys(result).forEach((key)=>{
+      result[key] = result[key] || kind[key] === true;
+    });
+    return result;
+  }, {
+    airConditioner: false,
+    washingMachine: false,
+    uprightWashingMachine: false,
+    waterTank: false,
+    waterPipe: false
+  });
 
-  const washerItems = validItems.filter((item)=>
-    String(item?.service || '').trim() === '洗衣機清洗'
-  );
-
-  const hasAirConditioner = hasService('冷氣清洗');
-  const hasWashingMachine = washerItems.length > 0;
-  const hasUprightWashingMachine = washerItems.some((item)=>
-    String(item?.option || '').includes('直立式')
-  );
-  const hasWaterTank = hasService('水塔清洗');
-  const hasWaterPipe = hasService('自來水管清洗');
   const sections = [];
+  const detectedLabels = [];
 
-  if (hasAirConditioner){
+  if (detected.airConditioner){
+    detectedLabels.push('冷氣清洗');
     sections.push(`【冷氣清洗注意事項】
 ・請提前清出冷氣室內機下方及前方的作業空間，以便擺放 A 字梯與清洗設備。
 ・大型衣櫃、書櫃、床或沙發等不易移動家具，不需勉強搬動，將由現場人員評估。
 ・冷氣附近如有貴重物品、電器或易受潮物品，請先協助收妥。`);
   }
 
-  if (hasWashingMachine){
-    const washerTitle = hasUprightWashingMachine
+  if (detected.washingMachine){
+    detectedLabels.push(detected.uprightWashingMachine ? '直立式洗衣機清洗' : '洗衣機清洗');
+    const washerTitle = detected.uprightWashingMachine
       ? '直立式洗衣機清洗注意事項'
       : '洗衣機清洗注意事項';
 
@@ -1323,7 +1350,8 @@ function buildConfirmNotice(items = []){
 ・洗衣機周圍如有貴重或怕水物品，請先協助收妥。`);
   }
 
-  if (hasWaterTank){
+  if (detected.waterTank){
+    detectedLabels.push('水塔清洗');
     sections.push(`【水塔清洗注意事項】
 ・請確認水塔、頂樓或設備空間的進出通道可以正常通行。
 ・如有鐵門、門鎖、伸縮梯或管制區域，請提前安排開啟。
@@ -1331,7 +1359,8 @@ function buildConfirmNotice(items = []){
 ・施工期間可能需要暫停供水，建議先預留必要用水；實際情況將由現場人員說明。`);
   }
 
-  if (hasWaterPipe){
+  if (detected.waterPipe){
+    detectedLabels.push('自來水管清洗');
     sections.push(`【自來水管清洗注意事項】
 ・請保持主要水龍頭、熱水器及相關設備周圍方便操作。
 ・施工期間可能短暫影響用水，建議先預留必要用水。
@@ -1344,10 +1373,15 @@ function buildConfirmNotice(items = []){
 ・若現場有門禁、停車或其他進場限制，請提前與我們聯繫。`);
   }
 
+  const serviceSummary = detectedLabels.length > 0
+    ? `本次已辨識服務：${Array.from(new Set(detectedLabels)).join('、')}`
+    : '本次服務未符合既有分類，先顯示通用行前提醒。';
+
   return [
     '✅ 感謝您的確認，預約已完成！',
+    serviceSummary,
     '',
-    '我們將依約定的日期與時間前往服務，以下是本次服務的行前準備事項：',
+    '請閱讀完以下行前準備事項，再按下方按鈕關閉視窗：',
     '',
     sections.join('\n\n'),
     '',
@@ -2292,37 +2326,64 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 // === End Cancellation Warning Modal (debuggable & overrideable) ===
 
-// === Confirmed Modal (archived/locked & custom thank-you, no auto-close) ===
+// === Confirmed Modal（僅能由使用者主動關閉，不使用倒數或自動重新整理）===
 (function(){
-  // 可傳入自訂文字；若未提供則使用預設「已確認並封存」訊息
   window.__confirmModalShow = function(customText){
     const defaultText = '✅ 已確認\n此報價單已完成確認並封存，僅供查看。';
     const text = (typeof customText === 'string' && customText.trim().length > 0) ? customText : defaultText;
 
+    // 避免重複點擊時同時出現多個確認視窗。
+    document.querySelectorAll('.confirm-modal-backdrop[data-confirm-notice="1"]').forEach((el)=>el.remove());
+
     const backdrop = document.createElement('div');
     backdrop.className = 'confirm-modal-backdrop';
+    backdrop.dataset.confirmNotice = '1';
 
-    // 將換行轉為 <br>，保留段落
-    const bodyHtml = text.replace(/\n/g, '<br/>');
+    const modal = document.createElement('section');
+    modal.className = 'confirm-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'confirm-notice-title');
+    modal.setAttribute('aria-describedby', 'confirm-notice-body');
 
-    backdrop.innerHTML = [
-      '<div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">',
-        '<header><span id="confirm-modal-title">通知</span></header>',
-        `<div class="body">${bodyHtml}</div>`,
-        '<div class="actions">',
-          '<button class="btn primary" id="confirm-modal-ok">關閉</button>',
-        '</div>',
-      '</div>'
-    ].join('');
+    const header = document.createElement('header');
+    const title = document.createElement('span');
+    title.id = 'confirm-notice-title';
+    title.textContent = '報價確認完成｜服務注意事項';
+    header.appendChild(title);
 
+    const body = document.createElement('div');
+    body.className = 'body';
+    body.id = 'confirm-notice-body';
+    body.textContent = text;
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn primary';
+    closeButton.textContent = '我已閱讀並關閉';
+    actions.appendChild(closeButton);
+
+    modal.append(header, body, actions);
+    backdrop.appendChild(modal);
     document.body.appendChild(backdrop);
+    document.documentElement.style.overflow = 'hidden';
 
-    function close(){ if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop); }
-    document.getElementById('confirm-modal-ok').addEventListener('click', close);
-    // 允許點擊外層關閉；不自動關閉
-    backdrop.addEventListener('click', function(e){ if (e.target === backdrop) close(); });
+    function close(){
+      if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+      document.documentElement.style.overflow = '';
+    }
+
+    closeButton.addEventListener('click', close);
+    backdrop.addEventListener('keydown', function(event){
+      if (event.key === 'Escape') close();
+    });
+
+    // 不綁定 backdrop 點擊關閉，也沒有 setTimeout；必須由顧客主動按按鈕或 Escape。
+    requestAnimationFrame(()=>closeButton.focus());
   };
-})(); 
+})();
 // === End Confirmed Modal ===
 
 document.addEventListener('DOMContentLoaded', function(){
