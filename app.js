@@ -870,7 +870,48 @@ function updateSummaryCard(){
     areaSpan.textContent = display || '地址尚未填寫';
   }
 
-  // 5. 狀態：用全域狀態 / 作廢旗標推論
+  // 5. 本次服務項目：把明細濃縮到摘要，讓顧客一打開就知道買了什麼
+  try{
+    const list = document.querySelector('#summaryServiceList');
+    if (list){
+      const rows = Array.from(document.querySelectorAll('#quoteTable tbody tr'));
+      const items = rows.map(tr=>{
+        const service = (tr.querySelector('.service')?.value || '').trim();
+        const option  = (tr.querySelector('.option')?.value || '').trim();
+        const qty     = Math.max(1, Number(tr.querySelector('.qty')?.value || 1));
+        const subText = (tr.querySelector('.subtotal')?.textContent || '0').trim();
+        const subtotal = Number(subText.replace(/[^0-9.-]/g,'')) || 0;
+        const isGift = service && subtotal === 0;
+        return {service, option, qty, subtotal, isGift};
+      }).filter(x=>x.service);
+
+      if (!items.length){
+        list.innerHTML = '<div class="summary-empty">尚未加入服務項目</div>';
+      }else{
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+        list.innerHTML = items.map(it=>{
+          const optionText = [it.option, `數量 ${it.qty}`].filter(Boolean).join(' · ');
+          const amountText = it.isGift ? '🎁 贈送' : `NT$ ${it.subtotal.toLocaleString('zh-TW')}`;
+          return `<div class="summary-service-row">
+            <div><div class="summary-service-name">${esc(it.service)}</div><span class="summary-service-option">${esc(optionText)}</span></div>
+            <div class="summary-service-amount${it.isGift ? ' is-gift' : ''}">${amountText}</div>
+          </div>`;
+        }).join('');
+      }
+    }
+  }catch(_){}
+
+  // 6. 匯款資訊同步：摘要與下方付款區共用同一份帳號資料
+  try{
+    const acct = document.querySelector('#bankAccount')?.value || '';
+    const meta = (document.querySelector('#bankMeta')?.textContent || '').trim();
+    const summaryAcct = document.querySelector('#summaryBankAccount');
+    const summaryMeta = document.querySelector('#summaryBankMeta');
+    if (summaryAcct && acct) summaryAcct.textContent = acct;
+    if (summaryMeta && meta) summaryMeta.textContent = meta;
+  }catch(_){}
+
+  // 7. 狀態：用全域狀態 / 作廢旗標推論
   let key = '';
   if (typeof window.QUOTE_STATUS === 'string') {
     key = window.QUOTE_STATUS.toLowerCase();
@@ -1871,6 +1912,15 @@ qs("#technicianName").value = data.technician|| "";
   qsa("select").forEach(el=>el.setAttribute("disabled", true));
   try{ setAddressUIReadOnly(true); }catch(_){ }
   ["addRow","shareLinkBtn","shareLinkBtnMobile"].forEach(id=>{ const el = qs("#"+id); if(el) el.style.display="none"; });
+
+  // 顧客查看報價時，匯款資料預設展開，避免客人漏看收合內容。
+  try{
+    const bankBox = qs('#bankBox');
+    const toggleBtn = qs('#toggleAccountBtn');
+    if (bankBox) bankBox.classList.remove('d-none');
+    if (toggleBtn) toggleBtn.textContent = '🙈 隱藏匯款資訊';
+  }catch(_){}
+
   updateTotals();
 }
 
@@ -1967,16 +2017,22 @@ document.addEventListener('click', function(e){
       try{ box.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_){}
     }
   }
-  if (t.id === 'copyAccountBtn'){
+  if (t.id === 'copyAccountBtn' || t.id === 'summaryCopyAccountBtn'){
     const acct = qs('#bankAccount');
     if (!acct) return;
+    const digits = ((acct.value.match(/\d+/g)||[]).join(''));
+    const markCopied = function(){
+      const orig = t.textContent;
+      t.textContent = '✅ 已複製';
+      setTimeout(function(){ t.textContent = orig; }, 1200);
+    };
     try{
-      navigator.clipboard.writeText(((acct.value.match(/\d+/g)||[]).join(''))).then(function(){
-        const orig = t.textContent;
-        t.textContent = '✅ 已複製';
-        setTimeout(function(){ t.textContent = orig; }, 1200);
+      navigator.clipboard.writeText(digits).then(markCopied).catch(function(){
+        try{ acct.select(); document.execCommand('copy'); markCopied(); }catch(_){}
       });
-    }catch(_){}
+    }catch(_){
+      try{ acct.select(); document.execCommand('copy'); markCopied(); }catch(__){}
+    }
   }
 });
 

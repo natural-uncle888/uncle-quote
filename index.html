@@ -307,6 +307,48 @@ html, body { overflow-x: hidden; }
       }
     }
 
+
+/* 2026-09-21：顧客第一眼重點摘要（服務項目＋付款資訊） */
+.summary-extras{
+  display:grid;
+  grid-template-columns:minmax(0,1.35fr) minmax(260px,.85fr);
+  gap:12px;
+  margin-top:14px;
+}
+.summary-extra-card{
+  border:1px solid #e5eaf1;
+  border-radius:14px;
+  background:#f8fafc;
+  padding:12px 14px;
+}
+.summary-extra-title{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-weight:800;color:#1f2937;margin-bottom:8px;
+}
+.summary-service-list{display:flex;flex-direction:column;gap:7px;}
+.summary-service-row{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding-bottom:7px;border-bottom:1px dashed #dde3ea;
+}
+.summary-service-row:last-child{padding-bottom:0;border-bottom:0;}
+.summary-service-name{font-weight:700;color:#263238;line-height:1.35;}
+.summary-service-option{display:block;font-size:.82rem;color:#6c757d;font-weight:500;margin-top:2px;}
+.summary-service-amount{white-space:nowrap;font-weight:800;color:#0d6efd;}
+.summary-service-amount.is-gift{color:#d97706;}
+.summary-empty{font-size:.9rem;color:#6c757d;}
+.summary-payment-card{background:linear-gradient(135deg,#f0f7ff 0%,#f7fbf8 100%);border-color:#cfe2ff;}
+.summary-payment-meta{font-size:.86rem;color:#495057;line-height:1.55;margin-bottom:8px;}
+.summary-bank-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.summary-bank-account{
+  flex:1 1 170px;min-width:0;padding:8px 10px;border-radius:10px;background:#fff;
+  border:1px solid #cbd5e1;font-weight:800;letter-spacing:.035em;color:#111827;
+  overflow-wrap:anywhere;
+}
+.summary-payment-note{font-size:.78rem;color:#6c757d;margin-top:7px;}
+@media (max-width:767.98px){
+  .summary-extras{grid-template-columns:1fr;}
+}
+
       /* --- Payment highlight styles --- */
     .payment-highlight{
       background: linear-gradient(135deg, rgba(13,110,253,.08), rgba(25,135,84,.08));
@@ -1267,6 +1309,32 @@ html, body { overflow-x: hidden; }
           </div>
         </div>
       </div>
+
+      <div class="summary-extras" aria-label="本次報價重點">
+        <div class="summary-extra-card">
+          <div class="summary-extra-title">
+            <span>🧾 本次服務項目</span>
+            <span class="small text-muted fw-normal">重點摘要</span>
+          </div>
+          <div id="summaryServiceList" class="summary-service-list">
+            <div class="summary-empty">尚未加入服務項目</div>
+          </div>
+        </div>
+
+        <div class="summary-extra-card summary-payment-card">
+          <div class="summary-extra-title">
+            <span>🏧 匯款資訊</span>
+            <span class="badge text-bg-primary">可直接複製</span>
+          </div>
+          <div id="summaryBankMeta" class="summary-payment-meta">銀行：台新銀行（812）　戶名：林宥騰</div>
+          <div class="summary-bank-line">
+            <div id="summaryBankAccount" class="summary-bank-account">28881000063784</div>
+            <button id="summaryCopyAccountBtn" class="btn btn-primary btn-sm" type="button">📋 複製帳號</button>
+          </div>
+          <div class="summary-payment-note">完工當日可現場付款或匯款；詳細付款說明仍保留在下方。</div>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -1697,7 +1765,7 @@ html, body { overflow-x: hidden; }
 <div class="footer-bar"><small>© 2025 自然大叔 All Rights Reserved</small></div>
 <!-- 外部 JS：避免 CSP 擋下 inline -->
 <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script defer src="/app.js?v=20260716-confirm-notice-v4"></script>
+<script defer src="/app.js?v=20260921-summary-payment-v1"></script>
 <script>
 // Unified mobile bottom bar logic: single source of UI/event handling
 (function() {
