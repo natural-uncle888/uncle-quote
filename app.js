@@ -890,25 +890,38 @@ function updateSummaryCard(){
       }else{
         const esc = v => String(v ?? '').replace(/[&<>"']/g, ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
         list.innerHTML = items.map(it=>{
-          const optionText = [it.option, `數量 ${it.qty}`].filter(Boolean).join(' · ');
-          const amountText = it.isGift ? '🎁 贈送' : `NT$ ${it.subtotal.toLocaleString('zh-TW')}`;
+          // 摘要只保留「服務名稱＋必要選項＋數量」，各項小計留在下方完整明細，避免資訊重複。
+          const optionBits = [];
+          if (it.option) optionBits.push(it.option);
+          if (it.qty > 1) optionBits.push(`×${it.qty}`);
+          const optionText = optionBits.join(' · ');
+          const giftText = it.isGift ? '<span class="summary-service-amount is-gift">🎁 贈送</span>' : '';
           return `<div class="summary-service-row">
-            <div><div class="summary-service-name">${esc(it.service)}</div><span class="summary-service-option">${esc(optionText)}</span></div>
-            <div class="summary-service-amount${it.isGift ? ' is-gift' : ''}">${amountText}</div>
+            <span class="summary-service-name">${esc(it.service)}</span>
+            ${optionText ? `<span class="summary-service-option">${esc(optionText)}</span>` : ''}
+            ${giftText}
           </div>`;
         }).join('');
       }
     }
   }catch(_){}
 
-  // 6. 匯款資訊同步：摘要與下方付款區共用同一份帳號資料
+  // 6. 匯款資訊同步：摘要只顯示銀行＋帳號；完整戶名與付款說明留在下方，避免上下重複。
   try{
     const acct = document.querySelector('#bankAccount')?.value || '';
     const meta = (document.querySelector('#bankMeta')?.textContent || '').trim();
     const summaryAcct = document.querySelector('#summaryBankAccount');
     const summaryMeta = document.querySelector('#summaryBankMeta');
     if (summaryAcct && acct) summaryAcct.textContent = acct;
-    if (summaryMeta && meta) summaryMeta.textContent = meta;
+    if (summaryMeta && meta){
+      const bankOnly = meta
+        .replace(/戶名[：:]?[^　
+]+/g, '')
+        .replace(/^銀行[：:]?\s*/,'')
+        .replace(/[　\s]+$/,'')
+        .trim();
+      summaryMeta.textContent = bankOnly || meta;
+    }
   }catch(_){}
 
   // 7. 狀態：用全域狀態 / 作廢旗標推論
@@ -1913,12 +1926,12 @@ qs("#technicianName").value = data.technician|| "";
   try{ setAddressUIReadOnly(true); }catch(_){ }
   ["addRow","shareLinkBtn","shareLinkBtnMobile"].forEach(id=>{ const el = qs("#"+id); if(el) el.style.display="none"; });
 
-  // 顧客查看報價時，匯款資料預設展開，避免客人漏看收合內容。
+  // v2：摘要已直接提供銀行與可複製帳號；下方完整匯款資料恢復收合，縮短手機頁面長度。
   try{
     const bankBox = qs('#bankBox');
     const toggleBtn = qs('#toggleAccountBtn');
-    if (bankBox) bankBox.classList.remove('d-none');
-    if (toggleBtn) toggleBtn.textContent = '🙈 隱藏匯款資訊';
+    if (bankBox) bankBox.classList.add('d-none');
+    if (toggleBtn) toggleBtn.textContent = '查看完整匯款資訊';
   }catch(_){}
 
   updateTotals();
