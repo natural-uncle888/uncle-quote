@@ -915,8 +915,7 @@ function updateSummaryCard(){
     if (summaryAcct && acct) summaryAcct.textContent = acct;
     if (summaryMeta && meta){
       const bankOnly = meta
-        .replace(/戶名[：:]?[^　
-]+/g, '')
+        .replace(/戶名[：:]?[^\n\r]+/g, '')
         .replace(/^銀行[：:]?\s*/,'')
         .replace(/[　\s]+$/,'')
         .trim();
