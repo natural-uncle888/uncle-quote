@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /quotes.html
+Disallow: /api/
+Disallow: /.netlify/functions/
+Disallow: /q/
+Disallow: /20
+
+# 本系統為報價/顧客確認工具；頁面另以 noindex 防止進入搜尋結果。

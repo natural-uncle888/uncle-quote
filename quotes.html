@@ -8,6 +8,7 @@
 <!-- ✅ favicon 結束 -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
   
 <!-- PWA 設定開始 -->
 <meta name="application-name" content="大叔(報)管理">
@@ -392,7 +393,7 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 // 支援 file:// 開檔：自動偵測 Netlify Functions 網域（必要時可在頁面最上方自行指定 SITE_ORIGIN）
 const ORIGIN = (location.origin && !String(location.origin).startsWith('file'))
   ? location.origin
-  : (window.SITE_ORIGIN || 'https://unclequotation.netlify.app');
+  : (window.SITE_ORIGIN || 'https://quote.naturaluncle.com');
 
 let NEXT = "";
 let LAST_TOTAL = null;

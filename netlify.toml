@@ -1,3 +1,9 @@
+# 線上報價單包含顧客與報價資料，不進入搜尋引擎索引。
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+
 
 # 避免 PWA 長時間保留舊版核心程式。
 [[headers]]
