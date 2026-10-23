@@ -25,6 +25,11 @@
   [headers.values]
     Cache-Control = "no-cache, max-age=0, must-revalidate"
 
+[[headers]]
+  for = "/ga4-tracking.js"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
 [functions]
   node_bundler = "esbuild"
   external_node_modules = []

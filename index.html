@@ -1767,10 +1767,17 @@ html, body { overflow-x: hidden; }
 </div>
 </div>
 </div>
-<div class="footer-bar"><small>© 2026 自然大叔 All Rights Reserved</small></div>
+<div class="footer-bar">
+  <small>© 2026 自然大叔 All Rights Reserved</small>
+  <small style="display:block;margin-top:5px;font-size:11px;line-height:1.6;color:#52606d;">
+    顧客開啟分享報價單時，本頁會使用 Google Analytics（GA4）統計瀏覽與互動；不會將姓名、電話、地址、服務明細或報價金額送入分析工具。
+  </small>
+</div>
 <!-- 外部 JS：避免 CSP 擋下 inline -->
 <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script defer src="/app.js?v=20260921-summary-payment-v2.1"></script>
+<!-- GA4 僅在顧客分享報價連結上啟用；內部建立/管理頁不追蹤。 -->
+<script defer src="/ga4-tracking.js?v=20261023"></script>
+<script defer src="/app.js?v=20261023-ga4-quote"></script>
 <script>
 // Unified mobile bottom bar logic: single source of UI/event handling
 (function() {

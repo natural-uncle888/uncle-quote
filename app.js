@@ -1521,6 +1521,9 @@ async function handleConfirmSubmit(clickedBtn){
       try{ updateSummaryCard(); }catch(_){}
     }
 
+    // GA4：只有確認 API 與必要的封存流程都成功後才送出成功事件；不附帶報價或顧客資料。
+    try { document.dispatchEvent(new CustomEvent('nu:quote-confirmed')); } catch (_) {}
+
     // 不再使用固定時間重新整理；讓顧客閱讀完後自行關閉。
     if (typeof window.__confirmModalShow === 'function'){
       window.__confirmModalShow(confirmNotice);
@@ -2120,6 +2123,8 @@ applyReadOnlyData(data);
       if (data && data.promo && typeof window.__applyPromoFromData==='function') { window.__applyPromoFromData(data.promo); }
       applyMobileLabels();
       setReadonlyButtonsVisibility(!locked);
+      // GA4：只通知追蹤器報價資料成功載入，不傳送報價 ID、顧客資料或金額。
+      try { document.dispatchEvent(new CustomEvent('nu:quote-viewed')); } catch (_) {}
 
       if (locked){
         const notice = document.createElement('div');
@@ -2165,6 +2170,8 @@ applyReadOnlyData(data);
       } else { 
         setReadonlyButtonsVisibility(true); 
       }
+      // 舊版 #data= 分享連結成功解析後，同樣只記錄「報價已載入」。
+      try { document.dispatchEvent(new CustomEvent('nu:quote-viewed')); } catch (_) {}
       return;
     }catch(err){ 
       console.error("讀取分享資料失敗：", err); 
