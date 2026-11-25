@@ -1239,6 +1239,12 @@ html, body { overflow-x: hidden; }
   .mobile-bottom-bar .mobile-final-status{ padding-left:8px; padding-right:8px; }
 }
 </style>
+<style>
+body.estimate-mode .summary-payment-card, body.estimate-mode #payment {display:none!important;}
+body.estimate-mode .nu-important-box {display:none!important;}
+body.estimate-mode.estimate-readonly .addr-schedule-add {display:none!important;}
+body.estimate-mode .summary-main-subtitle {font-size:.9rem;}
+</style>
 </head>
 <body>
 <header class="quote-header"><h1 class="visually-hidden">自然大叔 線上報價單</h1></header>
@@ -1247,6 +1253,13 @@ html, body { overflow-x: hidden; }
 <div class="text-center">
 <img alt="自然大叔 Logo" class="logo" src="https://res.cloudinary.com/dijzndzw2/image/upload/v1756944900/2_oufdld.png"/>
 </div>
+<div class="text-center mb-2 d-none" id="quoteTypeTitle"><h2 class="h4 mb-1">事前報價單</h2><div class="text-muted small">清洗服務｜企業及個人詢價</div></div>
+<div class="mb-3 p-3 border rounded-3 d-none" id="quoteTypeEditor">
+  <label for="quoteType" class="form-label fw-bold mb-1">報價單類型</label>
+  <select id="quoteType" class="form-select"><option value="work">施工確認單（預設）</option><option value="estimate">事前報價單</option></select>
+  <div class="form-text" id="quoteTypeHelp">已預約客戶的施工前通知及最終確認。</div>
+</div>
+<div class="alert alert-info d-none" id="convertedSource"></div>
 <div class="quote-info" id="quoteInfo"></div>
 <div class="quote-info-toolbar" id="quoteInfoEditor" aria-label="報價日期設定">
   <div class="quote-date-field text-start">
@@ -1255,6 +1268,8 @@ html, body { overflow-x: hidden; }
   </div>
   <button class="btn btn-outline-secondary btn-sm" id="quoteNowBtn" type="button">帶入今天日期</button>
 </div>
+<div id="estimateExpiryBox" class="mb-3 d-none"><label for="estimateExpiry" class="form-label">報價有效期限</label><input type="date" class="form-control" id="estimateExpiry"><div class="form-text">有效日至當日 23:59（台灣時間）。</div></div>
+<div class="alert alert-warning d-none" id="estimateExpired" role="alert">本報價已逾有效期限，請與我們聯繫重新報價。</div>
 <!-- 作廢橫幅 -->
 <div class="alert alert-danger d-none" id="cancelBanner" role="alert">⚠️ 本報價單已作廢</div>
 
@@ -1365,13 +1380,19 @@ html, body { overflow-x: hidden; }
       請您確認以下聯絡方式與服務地址是否正確，如需變更請事先與我們聯繫。
     </p>
 
+    <div id="companyFields" class="row g-2 mb-3 d-none">
+      <div class="col-md-6"><label class="form-label" for="companyName">公司名稱／抬頭（選填）</label><input id="companyName" class="form-control" type="text"></div>
+      <div class="col-md-6"><label class="form-label" for="companyTaxId">統一編號（選填）</label><input id="companyTaxId" class="form-control" type="text" inputmode="numeric" maxlength="8" pattern="[0-9]{8}"></div>
+      <div class="col-md-6"><label class="form-label" for="companyEmail">電子郵件（選填）</label><input id="companyEmail" class="form-control" type="email"></div>
+      <div class="col-md-6"><label class="form-label" for="companyAddress">公司地址（選填）</label><input id="companyAddress" class="form-control" type="text"></div>
+    </div>
     <div class="row g-2 mb-3">
       <div class="col-md-6 col-12">
-        <label class="form-label">姓名</label>
+        <label class="form-label" id="customerNameLabel">姓名</label>
         <input class="form-control" id="customerName" placeholder="客戶姓名" type="text"/>
       </div>
       <div class="col-md-6 col-12">
-        <label class="form-label">電話</label>
+        <label class="form-label" id="customerPhoneLabel">電話</label>
         <input class="form-control" id="customerPhone" type="text"/>
       </div>
     </div>
@@ -1398,13 +1419,13 @@ html, body { overflow-x: hidden; }
   </div>
 
   <!-- 服務執行資訊 -->
-  <div class="mb-4">
+  <div class="mb-4" id="executionInfo">
     <h3 id="service-info-title" class="h5 mb-2">服務執行資訊</h3>
     <p class="small text-muted mb-2">
       以下為將到府服務的技師與預約時間，如有異動可於排程前與我們協調調整。
     </p>
 
-    <div class="row g-2 mb-3">
+    <div class="row g-2 mb-3" id="technicianFields">
       <div class="col-md-6 col-12">
         <label class="form-label">技師姓名</label>
         <input class="form-control" id="technicianName" type="text" value="林宥騰"/>
@@ -1777,7 +1798,7 @@ html, body { overflow-x: hidden; }
 <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <!-- GA4 僅在顧客分享報價連結上啟用；內部建立/管理頁不追蹤。 -->
 <script defer src="/ga4-tracking.js?v=20261023"></script>
-<script defer src="/app.js?v=20261023-ga4-quote"></script>
+<script defer src="/app.js?v=20261125-estimate"></script>
 <script>
 // Unified mobile bottom bar logic: single source of UI/event handling
 (function() {
@@ -1818,7 +1839,7 @@ html, body { overflow-x: hidden; }
     if (state.cancelled) {
       icon = '⛔'; title = '已作廢'; sub = '此報價單已作廢';
     } else if (state.confirmed || state.locked) {
-      icon = '✅'; title = '已確認報價'; sub = '已封存，無需再次操作';
+      icon = '✅'; title = document.body.classList.contains('estimate-mode')?'已接受報價':'已確認報價'; sub = document.body.classList.contains('estimate-mode')?'將另行聯繫安排施工':'已封存，無需再次操作';
     }
 
     var iconEl = statusBox.querySelector('.mobile-final-status-icon');
@@ -1891,8 +1912,8 @@ html, body { overflow-x: hidden; }
       // 唯讀待確認：顯示合計＆取消/同意；隱藏分享
       bar.classList.remove('d-none');
       hide(shareBtn);
-      show(cancelBtn);
-      show(confirmBtn);
+      if(new URL(location.href).searchParams.get('admin')==='1')show(cancelBtn);else hide(cancelBtn);
+      if(document.body.classList.contains('estimate-expired'))hide(confirmBtn);else show(confirmBtn);
     } else if (!hasEdited()) {
       // 尚未編輯：只顯示分享
       bar.classList.remove('d-none');

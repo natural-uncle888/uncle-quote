@@ -557,6 +557,7 @@ function renderItems(items){
             <span class="visually-hidden">更多操作</span>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
+            <li><button class="dropdown-item convert-estimate d-none" type="button">轉為施工確認單</button></li>
             <li><button class="dropdown-item text-danger delete" type="button">刪除</button></li>
           </ul>
         </div>
@@ -595,7 +596,7 @@ function renderItems(items){
 
     // Lazy 取詳細（客戶/合計/作廢狀態）
     fetchDetail(it.id).then(data=>{
-      const cust = (data?.data?.customer || "").trim() || (data?.resource?.context?.custom?.customer || data?.context?.custom?.customer || "");
+      const cust = (data?.data?.companyName || data?.data?.customer || "").trim() || (data?.resource?.context?.custom?.customer || data?.context?.custom?.customer || "");
       const promoComp = data?.data?.promo?.computed || null;
       const displayTotalNum = Number((promoComp && (promoComp.grandTotal ?? promoComp.total)) ?? (data?.data?.total ?? 0));
       const total = String(displayTotalNum);
@@ -617,7 +618,16 @@ function renderItems(items){
       tr.setAttribute('data-cancelled', cancelled ? '1' : '0');
       tr.setAttribute('data-total', String(Number(total)||0));
       const statusCell = tr.querySelector('.status-cell');
-      const statusText = cancelled ? '已作廢' : (locked ? '已確認' : '待確認');
+      const isEstimate = data?.data?.quoteType==='estimate';
+      const expired = isEstimate&&!locked&&data.data.validUntil&&data.data.validUntil<new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const statusText = cancelled ? '已作廢' : (isEstimate?(locked?'已接受報價':expired?'已逾期':'待接受報價'):(locked?'已確認':'待確認'));
+      const convert=tr.querySelector('.convert-estimate');
+      if(isEstimate&&locked&&!cancelled&&ctxc.accepted_at){convert.classList.remove('d-none');convert.addEventListener('click',async()=>{
+        convert.disabled=true;
+        try{ const id=String(it.id).split('/').pop();const existing=await fetchDetail(id+'-work');if(existing?.data?.sourceQuoteId===id){alert('此事前報價已轉換，將開啟原施工確認單。');location.href='/q/'+encodeURIComponent(id.replace(/^q-/,'')+'-work')+'?admin=1';return;}
+          location.href='/quote/?fromEstimate='+encodeURIComponent(id);
+        }catch(e){alert('讀取轉換狀態失敗，請稍後再試');}finally{convert.disabled=false;}
+      });}
       const statusClass = cancelled ? 'bg-danger' : (locked ? 'bg-success' : 'bg-info');
       // 解析作廢原因：優先 context.custom，再看 tags（unicode 版本優先）
       const reasonRaw = (
@@ -636,7 +646,7 @@ function renderItems(items){
       if (statusCell) {
         const tip = reason ? ('原因：' + escapeHtml(reason)) : statusText;
         statusCell.innerHTML =
-          `<span class="badge ${statusClass} badge-pill" title="${tip}">${statusText}</span>` +
+          `<span class="badge ${statusClass} badge-pill" title="${tip}">${statusText}</span>` + (isEstimate?'<div class="small text-muted mt-1">事前報價單</div>':data?.data?.sourceQuoteId?'<div class="small text-muted mt-1">施工確認單（由事前報價轉換）</div>':'') +
           (cancelled && reason
             ? `<div class="reason-line"><span class="label">原因：</span><span class="txt">${escapeHtml(reason)}</span></div>`
             : '');

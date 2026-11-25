@@ -2,6 +2,7 @@
 // 接收前端 JSON，存成 Cloudinary raw 檔，回傳日期流水號分享網址（例如 /20260527-001）
 
 import crypto from "crypto";
+import {handler as readQuote} from "./view.js";
 
 export async function handler(event){
   try{
@@ -16,6 +17,30 @@ export async function handler(event){
 
     if (!cloud || !apiKey || !apiSecret) return resp(500, "Missing Cloudinary config");
 
+    if (body.quoteType === 'estimate') {
+      const today = taipeiDateKey();
+      const expiry = String(body.validUntil||'');
+      const date = new Date(expiry+'T00:00:00Z');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(expiry) || Number.isNaN(date.getTime()) || date.toISOString().slice(0,10)!==expiry || expiry.replaceAll('-','')<today || expiry<String(body.quoteIssuedAt||'').slice(0,10)) return resp(400,'報價有效期限無效');
+      if (!String(body.companyName||'').trim()&&!String(body.customer||'').trim()) return resp(400,'公司名稱或聯絡人姓名不可空白');
+      if (body.companyTaxId&&!/^\d{8}$/.test(String(body.companyTaxId))) return resp(400,'統編須為 8 位數字');
+      if (!Array.isArray(body.items)||!body.items.some(i=>i?.service)) return resp(400,'請填寫服務項目');
+    }
+    const base = String(SITE_BASE_URL || "").replace(/\/+$/, "");
+    if (body.sourceQuoteId) {
+      const source = String(body.sourceQuoteId).split('/').pop();
+      if(body.quoteType!=='work'||!/^q-\d{8}-\d{3,}$/.test(source))return resp(400,'無效的來源報價');
+      const r = await readQuote({queryStringParameters:{id:source}});
+      if(r.statusCode!==200)return resp(409,'無法讀取原始報價');
+      const origin=JSON.parse(r.body);
+      if(origin.data?.quoteType!=='estimate'||!origin.locked||origin.tags?.includes('cancelled')||origin.context?.custom?.status==='cancelled'||!origin.context?.custom?.accepted_at)return resp(409,'只能轉換已接受且未作廢的事前報價');
+      body.sourceQuoteId=source;
+      const public_id=`${FOLDER}/${source}-work`;
+      const slug=`${source.slice(2)}-work`;
+      const result=await uploadQuote({cloud,apiKey,apiSecret,public_id,fileData:Buffer.from(JSON.stringify(body,null,2)).toString('base64')});
+      if(!result.ok&&!result.collision)return resp(result.status,JSON.stringify(result.data));
+      return json(200,{ok:true,public_id,short_code:slug,share_url:`${base}/q/${slug}`,existing:result.collision});
+    }
     const dateKey = quoteDateKeyFromBody(body) || taipeiDateKey();
     let sequence = await findNextSequence({ cloud, apiKey, apiSecret, folder: FOLDER, dateKey });
     const fileData = Buffer.from(JSON.stringify(body, null, 2)).toString("base64");
@@ -27,7 +52,7 @@ export async function handler(event){
     for (let attempt = 0; attempt < 30; attempt += 1, sequence += 1) {
       slug = `${dateKey}-${String(sequence).padStart(3, "0")}`;
       public_id = `${FOLDER}/q-${slug}`;
-      const result = await uploadQuote({ cloud, apiKey, apiSecret, public_id, fileData });
+      const result = await uploadQuote({ cloud, apiKey, apiSecret, public_id, fileData, estimate:body.quoteType==='estimate' });
       if (result.collision) continue;
       if (!result.ok) return resp(result.status, JSON.stringify(result.data));
       saved = result.data;
@@ -35,7 +60,6 @@ export async function handler(event){
     }
     if (!saved) return json(409, { error: "Unable to allocate quote sequence. Please retry." });
 
-    const base = String(SITE_BASE_URL || "").replace(/\/+$/, "");
     const share_url = `${base}/${encodeURIComponent(slug)}`;
     return json(200, { ok:true, public_id, short_code: slug, share_url, secure_url: saved.secure_url });
 
@@ -86,20 +110,21 @@ async function findNextSequence({ cloud, apiKey, apiSecret, folder, dateKey }){
     if (!response.ok) return 1;
     const data = await response.json().catch(() => ({}));
     const pid = String(data.resources?.[0]?.public_id || "");
-    const match = pid.match(new RegExp(`q-${dateKey}-(\\d+)$`));
+    const match = pid.match(new RegExp(`q-${dateKey}-(\\d+)(?:-work)?$`));
     return match ? Number(match[1]) + 1 : 1;
   }catch(_){
     return 1;
   }
 }
 
-async function uploadQuote({ cloud, apiKey, apiSecret, public_id, fileData }){
+async function uploadQuote({ cloud, apiKey, apiSecret, public_id, fileData, estimate=false }){
   const timestamp = Math.floor(Date.now()/1000);
-  const toSign = `overwrite=false&public_id=${public_id}&timestamp=${timestamp}${apiSecret}`;
+  const toSign = `${estimate?"context=quote_type=estimate&":""}overwrite=false&public_id=${public_id}&timestamp=${timestamp}${apiSecret}`;
   const signature = crypto.createHash("sha1").update(toSign).digest("hex");
   const form = new URLSearchParams();
   form.append("file", `data:application/json;base64,${fileData}`);
   form.append("overwrite", "false");
+  if(estimate) form.append("context","quote_type=estimate");
   form.append("public_id", public_id);
   form.append("timestamp", String(timestamp));
   form.append("api_key", apiKey);

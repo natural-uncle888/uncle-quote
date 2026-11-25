@@ -6,7 +6,30 @@
 exports.handler = async (event) => {
   try{
     if (event.httpMethod !== "POST") return resp(405, "Method Not Allowed");
-    const payload = JSON.parse(event.body || "{}");
+    let payload = JSON.parse(event.body || "{}");
+    // 事前報價確認以原始雲端資料為準，不信任瀏覽器傳入的金額與有效期。
+    if(payload.quoteType==='estimate'){
+      const id=String(payload.cloudinaryId||'');
+      if(!/^q-\d{8}-\d{3,}$/.test(id))return resp(400,'報價連結無效');
+      const {handler:readQuote}=await import('./view.js');
+      const r=await readQuote({queryStringParameters:{id}});
+      if(r.statusCode!==200)return resp(404,'找不到報價');
+      const original=JSON.parse(r.body), data=original.data, ctx=original.context?.custom||{};
+      if(data?.quoteType!=='estimate')return resp(400,'報價類型不符');
+      if(original.tags?.includes('cancelled')||ctx.status==='cancelled')return resp(409,'報價已作廢');
+      if(original.locked&&ctx.accepted_at)return json(200,{ok:true,alreadyAccepted:true});
+      if(original.locked)return resp(409,'報價已封存，請聯繫管理者');
+      const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(data.validUntil||'')||data.validUntil<today)return resp(409,'報價已逾期');
+      const cloud=process.env.CLOUDINARY_CLOUD_NAME, key=process.env.CLOUDINARY_API_KEY, secret=process.env.CLOUDINARY_API_SECRET;
+      const auth='Basic '+Buffer.from(`${key}:${secret}`).toString('base64');
+      const url=`https://api.cloudinary.com/v1_1/${cloud}/resources/${original.resource_type}/${original.type}/${encodeURIComponent(original.public_id)}`;
+      const acceptedAt=new Date().toISOString();
+      const form=new URLSearchParams({context:`quote_type=estimate|locked=1|status=confirmed|accepted_at=${acceptedAt}`});
+      const saved=await fetch(url,{method:'POST',headers:{Authorization:auth,'Content-Type':'application/x-www-form-urlencoded'},body:form});
+      if(!saved.ok)return resp(502,'無法儲存接受報價狀態，請稍後再試');
+      payload={...data,cloudinaryId:id,acceptedAt,email:data.companyEmail||''};
+    }
     const SITE_BASE_URL = process.env.SITE_BASE_URL || "";
     const notifySettings = await readNotificationSettings();
     const mailResult = await maybeSendEmail(payload, SITE_BASE_URL, notifySettings);
@@ -33,7 +56,7 @@ async function maybeSendEmail(payload, siteBase, notifySettings){
   }
 
   const GRAND = toNum(payload && payload.promo && payload.promo.computed && payload.promo.computed.grandTotal, payload && payload.total);
-  const subject = `${SUBJECT_PREFIX ? SUBJECT_PREFIX + " " : ""}客戶同意報價｜${(payload.customer||"未填")}｜合計 ${fmt(GRAND)} 元`;
+  const subject = `${SUBJECT_PREFIX ? SUBJECT_PREFIX + " " : ""}${payload.quoteType==='estimate'?'客戶接受事前報價（待安排施工）':'客戶同意報價'}｜${(payload.companyName||payload.customer||"未填")}｜合計 ${fmt(GRAND)} 元`;
 
   const html = buildConfirmHtml(payload, siteBase);
   const text = stripHtml(html);
@@ -147,15 +170,18 @@ function buildLineConfirmText(p, siteBase, mailResult){
 
   const id = String(p.cloudinaryId || p.short_code || "").trim();
   const base = String(siteBase || "").replace(/\/+$/, "");
-  const url = id && base ? `${base}/${encodeURIComponent(id.replace(/^q-/, ""))}` : "";
+  const slug=id.replace(/^q-/, "");
+  const url = id && base ? `${base}/${/^\d{8}-\d{3,}$/.test(slug)?'':'q/'}${encodeURIComponent(slug)}` : "";
 
   const mailStatus = mailResult && mailResult.mail_ok
     ? `Email：成功（${mailResult.mail_provider || "unknown"}）`
     : `Email：失敗/未寄出（${(mailResult && mailResult.mail_provider) || "none"}）`;
 
   return [
-    "✅ 客戶已同意報價",
+    p.quoteType==='estimate'?"✅ 客戶已接受事前報價（待安排施工）":"✅ 客戶已同意報價",
     "",
+    ...(p.companyName?[`公司：${p.companyName}`]:[]),
+    ...(p.companyTaxId?[`統編：${p.companyTaxId}`]:[]),
     `客戶：${String(p.customer || "未填").trim()}`,
     `電話：${String(p.phone || "未填").trim()}`,
     `地址：${formatAddressForText(p.address) || "未填"}`,
@@ -314,10 +340,13 @@ function buildConfirmHtml(p, siteBase){
         <!-- container：100% + max-width:600px -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Noto Sans, Arial;">
           <tr>
-            <td style="padding:18px 20px;background:#0ea5e9;color:#fff;font-size:20px;font-weight:700;">線上報價單確認</td>
+            <td style="padding:18px 20px;background:#0ea5e9;color:#fff;font-size:20px;font-weight:700;">${p.quoteType==='estimate'?'事前報價已接受｜待安排施工':'線上報價單確認'}</td>
           </tr>
           <tr>
             <td style="padding:18px 20px;color:#0f172a;font-size:16px;line-height:1.7;">
+              ${p.companyName?`<p style="margin:0 0 6px;"><strong>公司名稱：</strong>${esc(p.companyName)}</p>`:''}
+              ${p.companyTaxId?`<p style="margin:0 0 6px;"><strong>統一編號：</strong>${esc(p.companyTaxId)}</p>`:''}
+              ${p.companyEmail?`<p style="margin:0 0 6px;"><strong>電子郵件：</strong>${esc(p.companyEmail)}</p>`:''}
               <p style="margin:0 0 6px;"><strong>客戶名稱：</strong>${esc(p.customer)}</p>
               <p style="margin:0 0 6px;"><strong>電話：</strong>${esc(p.phone)}</p>
               <p style="margin:0 0 6px;"><strong>地址：</strong>${formatAddress(p.address)}</p>

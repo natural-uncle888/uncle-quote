@@ -35,6 +35,7 @@ export async function handler(event){
     }
     if (!meta) return resp(404, "Not found");
 
+    if(meta.context?.custom?.quote_type==='estimate') return resp(409,'事前報價須透過接受報價流程確認');
     // 更新 context
     const url = `https://api.cloudinary.com/v1_1/${cloud}/resources/${rtype}/${dtype}/${encodeURIComponent(publicId)}`;
     const form = new URLSearchParams();

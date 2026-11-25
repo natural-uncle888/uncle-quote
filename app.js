@@ -110,6 +110,60 @@ function getCid(){
   return m ? decodeURIComponent(m[1]) : "";
 }
 function isAdmin(){ return getParam('admin') === '1' || /[?&]admin=1/.test(location.hash||""); }
+// 事前報價與原施工確認模式共用原本欄位、計價與分享流程。
+let quoteType = 'work', quoteSource = '', quoteReadOnly = false, estimateExpired = false;
+let workScheduleDraft = null, estimateScheduleDraft = null;
+const companyKeys = ['companyName','companyTaxId','companyEmail','companyAddress'];
+function taipeiToday(){ return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+function defaultExpiry(){ const d=new Date(taipeiToday()+'T00:00:00+08:00'); d.setUTCDate(d.getUTCDate()+30); return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }
+function readScheduleDraft(){ return {tech:qs('#technicianName').value, phone:qs('#technicianPhone').value, date:qs('#cleanDate').value, addresses:qs('#customerAddress').value, slots:qs('#customerAddressSlots').value.split('\n')}; }
+function restoreScheduleDraft(d){ qs('#technicianName').value=d?.tech||''; qs('#technicianPhone').value=d?.phone||''; qs('#cleanDate').value=d?.date||''; setAddressesFromData(qs('#customerAddress').value, d?.addresses===qs('#customerAddress').value?d.slots:[]); updateCleanFull(); }
+function applyQuoteMode(type, readonly=false, data={}){
+  quoteType = type==='estimate'?'estimate':'work'; quoteReadOnly=readonly; const est=quoteType==='estimate';
+  document.body.classList.toggle('estimate-mode',est);
+  document.body.classList.toggle('estimate-readonly',readonly);
+  qs('#quoteType').value=quoteType;
+  toggle(qs('#quoteTypeEditor'),!readonly);
+  toggle(qs('#quoteTypeTitle'),est);
+  toggle(qs('#estimateExpiryBox'),est);
+  if(est&&!qs('#estimateExpiry').value&&!readonly) qs('#estimateExpiry').value=defaultExpiry();
+  const corporate=est||!!quoteSource||(readonly&&companyKeys.some(k=>qs('#'+k).value));
+  toggle(qs('#companyFields'),corporate);
+  if(readonly){ companyKeys.forEach(k=>toggle(qs('#'+k).parentElement,!!qs('#'+k).value)); }
+  else companyKeys.forEach(k=>toggle(qs('#'+k).parentElement,true));
+  setText(qs('#customerNameLabel'),corporate?'聯絡人姓名':'姓名');
+  qs('#customerName').placeholder=corporate?'聯絡人姓名':'客戶姓名';
+  setText(qs('#customerPhoneLabel'),corporate?'聯絡電話':'電話');
+  setText(qs('#customer-title'),corporate?'客戶／公司資訊':'顧客資訊');
+  setText(qs('.summary-eyebrow'),est?'清洗服務事前報價':'本次清洗服務');
+  setText(qs('#quoteTypeHelp'),est?'先提供價格，接受報價後再安排施工；施工日期與技師均可不填。':'已預約客戶的施工前通知及最終確認。');
+  setText(qs('.summary-main-subtitle'),est?'請確認公司資料、服務項目、金額與有效期限':'請優先確認金額、預約時間與服務地址是否正確');
+  const hasSchedule=!!(data.cleanDate||(data.addressSlots||[]).some?.(x=>String(x).trim()));
+  const hasTech=!!(data.technician||data.techPhone);
+  toggle(qs('#executionInfo'),!est||!readonly||hasSchedule||hasTech);
+  toggle(qs('#technicianFields'),!est||!readonly||hasTech);
+  toggle(qs('#cleanFullBox'),!est||!readonly||hasSchedule);
+  toggle(qs('.summary-date-item'),!est||!readonly||hasSchedule);
+  if(est&&readonly&&!hasSchedule) qsa('.addr-schedules').forEach(e=>e.classList.add('d-none'));
+  const confirmLabel=est?'同意報價並委託施工':'我同意此報價';
+  ['#confirmBtnDesktop','#confirmBtnMobile'].forEach(sel=>{const e=qs(sel); e.textContent=!est&&sel==='#confirmBtnDesktop'?'✅ '+confirmLabel:confirmLabel; e.setAttribute('aria-label',confirmLabel);});
+  const term=qs('.terms-columns li'); if(term) term.textContent=est?'同意報價表示接受本次服務項目及金額，施工日期另行確認。':'請於確認本報價內容無誤後，再按下「我同意此報價」，以利安排作業。';
+  estimateExpired=est&&readonly&&!!data.validUntil&&data.validUntil<taipeiToday()&&!getQuoteFinalState().finalized;
+  toggle(qs('#estimateExpired'),estimateExpired);
+  document.body.classList.toggle('estimate-expired',estimateExpired);
+  if(quoteSource){qs('#convertedSource').textContent='沿用事前報價 '+quoteSource.replace(/^q-/,'')+'｜原始報價及同意紀錄保留';toggle(qs('#convertedSource'),true);}
+  updateSummaryCard();
+}
+function validateEstimate(payload){
+  if(payload.quoteType!=='estimate') return true;
+  if(!payload.customer.trim()&&!payload.companyName.trim()){alert('請填寫公司名稱或聯絡人姓名。');return false;}
+  if(payload.companyTaxId&&!/^\d{8}$/.test(payload.companyTaxId)){alert('統一編號須為 8 位數字。');return false;}
+  if(payload.companyEmail&&!qs('#companyEmail').checkValidity()){alert('電子郵件格式不正確。');return false;}
+  if(!payload.validUntil||payload.validUntil<payload.quoteIssuedAt||payload.validUntil<taipeiToday()){alert('請設定不早於今天及報價日期的有效期限。');return false;}
+  if(!payload.items.some(i=>i.service)){alert('請至少新增一個服務項目。');return false;}
+  return true;
+}
+function forceReadOnlyBlank(){ qsa('input,textarea,select,button').forEach(e=>e.disabled=true); toggle(qs('#quoteTypeEditor'),false); }
 function setText(el, s){ if (el) el.textContent = String(s); }
 function addClass(el, c){ if (el) el.classList.add(c); }
 function removeClass(el, c){ if (el) el.classList.remove(c); }
@@ -948,6 +1002,10 @@ function updateSummaryCard(){
     hintText = '本報價單已作廢，僅供紀錄，如需重新估價請與我們聯繫。';
   }
 
+  if (quoteType==='estimate' && key!=='cancelled') {
+    label = key==='confirmed'?'已接受報價':(estimateExpired?'報價已逾期':'待接受報價');
+    hintText = key==='confirmed'?'已收到您的委託，我們將另行聯繫安排施工日期。':(estimateExpired?'請與我們聯繫重新報價。':'請確認服務項目及金額，同意後我們將聯繫安排施工。');
+  }
   if (statusSpan) {
     statusSpan.textContent = label;
     statusSpan.className = cls;
@@ -1449,6 +1507,7 @@ function buildConfirmNotice(items = []){
 ===================== */
 async function handleConfirmSubmit(clickedBtn){
   if (clickedBtn && clickedBtn.disabled) return;
+  if(estimateExpired){alert('此報價已逾期，請與我們聯繫。');return;}
   const originalText = clickedBtn ? clickedBtn.textContent : '';
 
   try{
@@ -1462,7 +1521,8 @@ async function handleConfirmSubmit(clickedBtn){
       payload = window.__augmentPayloadWithPromo(payload);
     }
 
-    const confirmNotice = buildConfirmNotice(payload.items || []);
+    if(quoteType==='estimate' && (estimateExpired || !getCid())) throw new Error('報價已逾期或連結無效');
+    const confirmNotice = quoteType==='estimate' ? '✅ 已收到您的委託！\n感謝您接受本次報價，我們將與您聯繫安排施工日期，待排定後另行提供施工確認單。\n— 自然大叔' : buildConfirmNotice(payload.items || []);
 
     // 使用共用解析器，同時支援 /q/短代碼、後台舊式 ?cid=... 與歷史 #cid=...
     const hash = location.hash || '';
@@ -1488,7 +1548,7 @@ async function handleConfirmSubmit(clickedBtn){
     await res.json();
 
     if (cid){
-      const lockRes = await fetch('/api/lock', {
+      const lockRes = quoteType==='estimate' ? {ok:true} : await fetch('/api/lock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: cid })
@@ -1560,7 +1620,8 @@ function buildLineQuoteMessage(shareUrl){
   const data = collectShareData();
   const customer = (data.customer || '貴賓').trim();
   const quoteNo = getQuoteNoFromUrl(shareUrl);
-  const total = Number(data.total || 0).toLocaleString('zh-TW');
+  const total = Number((data.quoteType==='estimate'?window.__quoteTotals?.grandTotal:data.total) ?? data.total ?? 0).toLocaleString('zh-TW');
+  if(data.quoteType==='estimate') return `${data.companyName||customer} 您好，\n提供本次清洗服務事前報價供您評估。\n報價合計：NT$ ${total}（${data.taxIncluded?'含稅':'未稅'}）\n有效期限：${data.validUntil}\n若接受報價，請點選「同意報價並委託施工」，我們將另行聯繫安排日期。\n\n${shareUrl}\n— 自然大叔`;
 
   // LINE 智慧版：只有真的有贈送服務時，才顯示贈送價值與贈送項目。
   const giftItems = (data.items || [])
@@ -1628,6 +1689,7 @@ async function handleShareClick(){
   if (clickedBtn) { clickedBtn.disabled = true; clickedBtn.textContent = '產生中…'; }
   try{
     let payload = collectShareData(); if (typeof window.__augmentPayloadWithPromo === 'function') payload = window.__augmentPayloadWithPromo(payload);
+    if (!validateEstimate(payload)) return;
     // timeout 15s with AbortController
     const ac = new AbortController();
     const to = setTimeout(()=>ac.abort(), 15000);
@@ -1641,6 +1703,7 @@ async function handleShareClick(){
     let data; try{ data = JSON.parse(raw); }catch(_){ data = {}; }
     // 含稅設定已儲存在報價資料中，分享網址本身維持乾淨的日期流水號格式。
     const hrefWithTax = data.share_url || data.pdf_url || "#";
+    if(data.existing){alert("此事前報價已轉換，將開啟既有施工確認單；本次編輯未另行儲存。");location.href=hrefWithTax+"?admin=1";return;}
     const box = qs("#shareLinkBox");
     removeClass(box, "d-none");
     box.innerHTML = `
@@ -1683,6 +1746,8 @@ function collectShareData(){
   });
   try{ renderQuoteInfo(); }catch(_){}
   return {
+    quoteType, sourceQuoteId: quoteSource || undefined, validUntil: quoteType==='estimate'?qs('#estimateExpiry').value:undefined,
+    ...(quoteType==='estimate'||quoteSource?Object.fromEntries(companyKeys.map(k=>[k,qs('#'+k).value.trim()])):{}),
     quoteInfo: qs("#quoteInfo").textContent.replace(/\s+/g,' ').trim(),
     quoteIssuedAt: normalizeQuoteIssuedAtValue(qs("#quoteIssuedAt")?.value || ""),
     customer:  qs("#customerName").value,
@@ -1692,7 +1757,7 @@ function collectShareData(){
     technician:qs("#technicianName").value,
     techPhone: qs("#technicianPhone").value,
     cleanDate: (qs("#cleanDate")?.value || ""),
-    cleanTime: qs("#cleanFull").textContent,
+    cleanTime: quoteType==='estimate'&&!qs('#cleanDate').value&&!qs('#customerAddressSlots').value.trim()?'':qs("#cleanFull").textContent,
     otherNotes:qs("#otherNotes").value,
     taxIncluded: qs("#toggleTax")?.checked === true,
     items, total: (function(){ try{ let sum=0; qsa("#quoteTable tbody tr").forEach(tr=>{ const v=parseInt(tr.querySelector(".subtotal")?.textContent||"0",10); sum+=isNaN(v)?0:v; }); return String(sum);}catch(_){return "0";} })()
@@ -1739,8 +1804,8 @@ function updateMobileFinalStatus(){
     className = 'is-cancelled';
   } else if (state.confirmed || state.locked) {
     icon = '✅';
-    title = '已確認報價';
-    sub = '已封存，無需再次操作';
+    title = quoteType==='estimate'?'已接受報價':'已確認報價';
+    sub = quoteType==='estimate'?'將另行聯繫安排施工':'已封存，無需再次操作';
     className = 'is-confirmed';
   }
 
@@ -1806,7 +1871,7 @@ function setReadonlyButtonsVisibility(canConfirm){
 
   const admin = isAdmin();
   const cancelled = !!window.__QUOTE_CANCELLED__;
-  const effectiveConfirm = canConfirm && !cancelled;
+  const effectiveConfirm = canConfirm && !cancelled && !estimateExpired;
 
   const shareDesk = qs("#shareLinkBtn"); if (shareDesk) shareDesk.style.display = "none";
   const shareM   = qs("#shareLinkBtnMobile"); if (shareM) shareM.style.display = "none";
@@ -1819,12 +1884,17 @@ function setReadonlyButtonsVisibility(canConfirm){
   const dConfirm = qs("#confirmBtnDesktop");
   if (mConfirm) mConfirm.classList.toggle("d-none", !effectiveConfirm);
   if (dConfirm) dConfirm.classList.toggle("d-none", !effectiveConfirm);
+  if(estimateExpired){setActionHiddenDisabled(mConfirm,true);setActionHiddenDisabled(dConfirm,true);}
 }
 
 /* =====================
    套用唯讀資料
 ===================== */
 function applyReadOnlyData(data){
+  quoteSource = String(data.sourceQuoteId||'');
+  companyKeys.forEach(k=>qs('#'+k).value=String(data[k]||''));
+  qs('#estimateExpiry').value=data.validUntil||'';
+  quoteType=data.quoteType==='estimate'?'estimate':'work';
   // 新版連結不帶 tax 參數；含稅顯示直接依報價資料還原。舊報價仍可沿用網址參數。
   try {
     if (typeof data.taxIncluded === 'boolean') {
@@ -1910,15 +1980,15 @@ qs("#technicianName").value = data.technician|| "";
   (data.items || []).forEach(it=>{
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><select class="form-select service" disabled><option>${it.service||""}</option></select></td>
-      <td><select class="form-select option" disabled><option>${it.option||""}</option></select></td>
-      <td><input type="number" class="form-control qty" value="${it.qty||1}" readonly /></td>
+      <td><select class="form-select service" disabled><option>${escapeHtmlLineBasic(it.service||"")}</option></select></td>
+      <td><select class="form-select option" disabled><option>${escapeHtmlLineBasic(it.option||"")}</option></select></td>
+      <td><input type="number" class="form-control qty" value="${Number(it.qty)||1}" readonly /></td>
       <td>
-        <input type="number" class="form-control price" value="${it.price||0}" 
+        <input type="number" class="form-control price" value="${Number(it.price)||0}" 
                ${it.overridden ? 'data-override="true"' : ''} readonly />
         ${(it.overridden && Number(it.price||0)===0) ? `<small class="discount-note">${formatGiftPriceNote(estimateGiftOriginalPrice(it.service,it.option,it.qty))}</small>` : (it.overridden ? '<small class="text-warning ms-1">(自訂單價)</small>' : '<small class="discount-note"></small>')}
       </td>
-      <td class="subtotal">${it.subtotal||0}</td>
+      <td class="subtotal">${Number(it.subtotal)||0}</td>
       <td></td>`;
     tbody.appendChild(tr);
   });
@@ -1936,6 +2006,7 @@ qs("#technicianName").value = data.technician|| "";
     if (toggleBtn) toggleBtn.textContent = '查看完整匯款資訊';
   }catch(_){}
 
+  applyQuoteMode(quoteType,true,data);
   updateTotals();
 }
 
@@ -1995,7 +2066,7 @@ function setupCancelButtonsVisibility(payload){
   const isConfirmed =
     isLocked || ctx.status === 'confirmed' || window.QUOTE_CONFIRMED === true ||
     String(window.QUOTE_STATUS || '').toLowerCase() === 'confirmed';
-  const show = !isCancelled && !isConfirmed;
+  const show = isAdmin() && !isCancelled && !isConfirmed;
 
   console.debug('[quote] cancel visibility', {admin:isAdmin(), want: wantShowCancel(), isCancelled, isLocked, isConfirmed});
   toggle(qs('#cancelBtnDesktop'), show);
@@ -2129,7 +2200,7 @@ applyReadOnlyData(data);
       if (locked){
         const notice = document.createElement('div');
         notice.className = 'alert alert-success mt-2';
-        notice.innerHTML = '此報價單已<span class="fw-bold">完成確認並封存</span>，僅供查看。';
+        notice.textContent = quoteType==='estimate'?'已接受事前報價，將另行聯繫安排施工。':'此報價單已完成確認並封存，僅供查看。';
         qs('.container-quote').prepend(notice);
         addClass(qs("#confirmBtnDesktop"), "d-none");
         addClass(qs("#confirmBtnMobile"), "d-none");
@@ -2424,7 +2495,7 @@ document.addEventListener('DOMContentLoaded', function(){
     const header = document.createElement('header');
     const title = document.createElement('span');
     title.id = 'confirm-notice-title';
-    title.textContent = '報價確認完成｜服務注意事項';
+    title.textContent = quoteType==='estimate'?'事前報價已接受':'報價確認完成｜服務注意事項';
     header.appendChild(title);
 
     const body = document.createElement('div');
@@ -2568,6 +2639,7 @@ document.addEventListener('DOMContentLoaded', function(){
       });
     }
     window.__renderPromoRules = renderRules;
+    window.__loadEditablePromo = p=>{ if(!p)return; state.nameType=p.nameType||'none';state.presetKey=p.presetKey||'none';state.customName=p.customName||'';state.rules=(p.rules||[]).map(r=>({...r})); if(preset)preset.value=state.nameType==='custom'?'custom':state.presetKey; if(custom){custom.value=state.customName;custom.style.display=state.nameType==='custom'?'':'none';} renderRules();updateTotals(); };
 
     if (preset) preset.addEventListener('change',()=>{
       const v=preset.value;
@@ -2608,6 +2680,7 @@ document.addEventListener('DOMContentLoaded', function(){
       const totalLine = showTax
         ? '<h5 class="mt-2 total-banner text-success">含稅 (5%)：<span id="totalWithTax">'+ grand +'</span> 元</h5>'
         : '<h5 class="mt-2 total-banner">合計：<span id="total">'+ grand +'</span> 元</h5>';
+      if(quoteType==='estimate'){rows.push('<div class="d-flex justify-content-between small"><span>未稅金額</span><span>NT$ '+after+'</span></div>');rows.push('<div class="d-flex justify-content-between small"><span>營業稅（5%）</span><span>'+(showTax?'NT$ '+tax:'未計入')+'</span></div>');}
       container.innerHTML = '<div class="d-flex flex-column gap-1">'+ rows.join('') + totalLine + giftHtml + '</div>';
     }
 
@@ -2650,7 +2723,7 @@ document.addEventListener('DOMContentLoaded', function(){
     payload.promo = {
       nameType: state.nameType, presetKey: state.presetKey, customName: state.customName,
       rules: state.rules,
-      computed: { discount: totals.promoDiscount||0, taxableBase: totals.taxableBase||null, tax: totals.tax||null, grandTotal: totals.grandTotal||null },
+      computed: { subtotal: totals.subtotal??0, discount: totals.promoDiscount||0, taxableBase: totals.taxableBase??0, tax: totals.tax??0, grandTotal: totals.grandTotal??0 },
       displayName: (state.nameType==='preset' ? (PRESETS[state.presetKey]?.name || '活動優惠') : (state.nameType==='custom' ? (state.customName || '活動優惠') : '活動優惠'))
     };
     return payload;
@@ -2835,3 +2908,35 @@ function niceAlert(message='完成', title='完成'){
     }
   } catch(_) {}
 })();
+
+// 僅在建立頁顯示類型切換，舊分享連結預設仍為施工確認。
+document.addEventListener('DOMContentLoaded',async()=>{
+  if(getCid()||location.hash.startsWith('#data='))return;
+  applyQuoteMode('work');
+  qs('#quoteType').addEventListener('change',()=>{
+    const next=qs('#quoteType').value;
+    if(next===quoteType)return;
+    if(next==='estimate'){ workScheduleDraft=readScheduleDraft(); restoreScheduleDraft(estimateScheduleDraft); }
+    else { estimateScheduleDraft=readScheduleDraft();restoreScheduleDraft(workScheduleDraft); }
+    applyQuoteMode(next);updateTotals();
+  });
+  const source=getParam('fromEstimate');
+  if(!source)return;
+  try{
+    const r=await fetch('/api/view?id='+encodeURIComponent(source),{cache:'no-store'}); if(!r.ok)throw Error('無法讀取原始報價');
+    const original=await r.json(), d=original.data;
+    if(d?.quoteType!=='estimate'||!original.locked||original.tags?.includes('cancelled')||original.context?.custom?.status==='cancelled')throw Error('只有已接受且未作廢的事前報價可轉換');
+    quoteSource=source;companyKeys.forEach(k=>qs('#'+k).value=d[k]||'');qs('#customerName').value=d.customer||d.companyName||'';qs('#customerPhone').value=d.phone||'';
+    qs('#otherNotes').value=d.otherNotes||'';qs('#toggleTax').checked=!!d.taxIncluded;
+    qs('#cleanDate').value='';setAddressesFromData(d.address||[],[]);updateCleanFull();
+    qs('#quoteTable tbody').replaceChildren();
+    (d.items||[]).forEach(it=>{
+      if(!it.service)return;qs('#addRow').click();const tr=qs('#quoteTable tbody').lastElementChild;
+      const sel=tr.querySelector('.service'),opt=tr.querySelector('.option');
+      if(!Array.from(sel.options).some(o=>o.value===it.service))sel.add(new Option(it.service,it.service));sel.value=it.service;
+      if(!Array.from(opt.options).some(o=>o.value===it.option))opt.add(new Option(it.option,it.option));opt.value=it.option||'';
+      tr.querySelector('.qty').value=it.qty;const price=tr.querySelector('.price');price.value=it.price;price.dataset.override='true';
+    });
+    window.__loadEditablePromo?.(d.promo);applyQuoteMode('work');qs('#quoteType').disabled=true;updateTotals();applyMobileLabels();
+  }catch(e){alert('轉換失敗：'+e.message);location.replace('/quote/');}
+});
